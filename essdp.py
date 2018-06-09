@@ -32,19 +32,27 @@ warnBox = bcolors.WARNING + '[!] ' + bcolors.ENDC
 
 def get_ip(i):
     try:
-        ip = re.findall(r'inet (.*?)/', os.popen('ip addr show wlp58s0').read())[0]
-        broadcast = re.findall(r'brd (.*?) ', os.popen('ip addr show wlp58s0').read())[0]
+        ip = re.findall(r'inet (.*?)/', os.popen('ip addr show ' + i).read())[0]
+        broadcast = re.findall(r'brd (.*?) ', os.popen('ip addr show ' + i).read())[0]
         return ip,broadcast
     except Exception:
         print(warnBox + "Could not get network interface info. Please check and try again.")
         sys.exit()
 
+def listen_msearch(b):
+   print(okBox + "Listening for MSEARCH queries using {} at {}".format(interface, b))
+   listener = SSDPListener(b)
+
+
+def serve_descriptor(i):
+    print(okBox + "Serving device descriptor using {} at {}".format(interface,i))
+    descriptor = DeviceDescriptor(i)
+
 
 def main():
    ip,broadcast = get_ip(interface)
-   print(okBox + "Listening for MSEARCH queries using {} at {}".format(interface, broadcast))
-   listener = SSDPListener(ip)
-   descriptor = DeviceDescriptor(ip)
+   listen_msearch(broadcast)
+   serve_descriptor(ip)
 
 if __name__ == "__main__":
     main()
