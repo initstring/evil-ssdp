@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 from lib.classes import SSDPListener
 from lib.classes import DeviceDescriptor
 import os,sys,re,argparse;
