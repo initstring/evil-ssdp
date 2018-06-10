@@ -25,11 +25,13 @@ interface = args.interface
 
 # Set up some nice colors
 class bcolors:
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
+    GREEN = '\033[92m'
+    BLUE = '\033[94m'
+    ORANGE = '\033[93m'
     ENDC = '\033[0m'
-okBox = bcolors.OKGREEN + '[+] ' + bcolors.ENDC
-warnBox = bcolors.WARNING + '[!] ' + bcolors.ENDC
+okBox = bcolors.BLUE + '[*] ' + bcolors.ENDC
+NoteBox = bcolors.GREEN + '[+] ' + bcolors.ENDC
+warnBox = bcolors.ORANGE + '[!] ' + bcolors.ENDC
 
 
 def get_ip(i):
@@ -41,9 +43,10 @@ def get_ip(i):
         print(warnBox + "Could not get network interface info. Please check and try again.")
         sys.exit()
 
-def listen_msearch(b):
-   print(okBox + "Listening for MSEARCH queries using {} at {}".format(interface, b))
-   listener = SSDPListener(b)
+def listen_msearch(ip):
+   print(okBox + "Listening for MSEARCH queries using {}.".format(interface))
+   listener = SSDPListener()
+   listener.run(ip)
 
 
 def serve_descriptor(i):
@@ -53,7 +56,7 @@ def serve_descriptor(i):
 
 def main():
    ip,broadcast = get_ip(interface)
-   listen_msearch(broadcast)
+   listen_msearch(ip)
    serve_descriptor(ip)
 
 if __name__ == "__main__":
