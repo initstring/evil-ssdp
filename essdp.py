@@ -2,7 +2,8 @@
 
 from lib.classes import SSDPListener
 from lib.classes import DeviceDescriptor
-import os,sys,re,argparse;
+from multiprocessing import Process
+import os,sys,re,argparse,socketserver;
 
 banner = r'''
 ___________     .__.__    _________ _________________ __________
@@ -21,10 +22,12 @@ print(banner)
 parser = argparse.ArgumentParser()
 parser.add_argument('interface', type=str, help='Network interface to listen on.', action='store')
 parser.add_argument('-p', '--port', type=str, help='Port for HTTP server. Defaults to 8888.', action='store')
+parser.add_argument('-n', '--name', type=str, help='Name of the Media Server. Defaults to ePNP Media.', action='store')
 args = parser.parse_args()
 
 interface = args.interface
-localPort = args.port or '8888'
+localPort = int(args.port) or 8888
+serverName = args.name or 'ePNP Media'
 
 # Set up some nice colors
 class bcolors:
@@ -37,30 +40,30 @@ NoteBox = bcolors.GREEN + '[+] ' + bcolors.ENDC
 warnBox = bcolors.ORANGE + '[!] ' + bcolors.ENDC
 
 
-def get_ip(i):
+def get_ip(interface):
     try:
-        localIp = re.findall(r'inet (.*?)/', os.popen('ip addr show ' + i).read())[0]
-        broadcast = re.findall(r'brd (.*?) ', os.popen('ip addr show ' + i).read())[0]
-        return localIp,broadcast
+        localIp = re.findall(r'inet (.*?)/', os.popen('ip addr show ' + interface).read())[0]
+        broadcast = re.findall(r'brd (.*?) ', os.popen('ip addr show ' + interface).read())[0]
+        return localIp
     except Exception:
         print(warnBox + "Could not get network interface info. Please check and try again.")
         sys.exit()
 
+def serve_descriptor(localIp, localPort):
+    print(okBox + "Serving device descriptor using {} at {} on port {}".format(interface, localIp, localPort))
+    descriptor = socketserver.TCPServer((localIp, localPort), DeviceDescriptor)
+    descriptor.serve_forever()
+
 def listen_msearch(localIp):
    print(okBox + "Listening for MSEARCH queries using {}.".format(interface))
-   listener = SSDPListener(localIp, localPort)
+   listener = SSDPListener(localIp, localPort, serverName)
    listener.run()
 
-
-def serve_descriptor(i):
-    print(okBox + "Serving device descriptor using {} at {}".format(interface,i))
-    descriptor = DeviceDescriptor(i)
-
-
 def main():
-   localIp,broadcast = get_ip(interface)
+   localIp = get_ip(interface)
+   Process(target=serve_descriptor, args=(localIp, localPort)).start()
    listen_msearch(localIp)
-   serve_descriptor(localIp)
+
 
 if __name__ == "__main__":
     main()
