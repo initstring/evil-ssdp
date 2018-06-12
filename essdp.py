@@ -20,8 +20,11 @@ print(banner)
 # Handle arguments before moving on....
 parser = argparse.ArgumentParser()
 parser.add_argument('interface', type=str, help='Network interface to listen on.', action='store')
+parser.add_argument('-p', '--port', type=str, help='Port for HTTP server. Defaults to 8888.', action='store')
 args = parser.parse_args()
+
 interface = args.interface
+localPort = args.port or '8888'
 
 # Set up some nice colors
 class bcolors:
@@ -36,17 +39,17 @@ warnBox = bcolors.ORANGE + '[!] ' + bcolors.ENDC
 
 def get_ip(i):
     try:
-        ip = re.findall(r'inet (.*?)/', os.popen('ip addr show ' + i).read())[0]
+        localIp = re.findall(r'inet (.*?)/', os.popen('ip addr show ' + i).read())[0]
         broadcast = re.findall(r'brd (.*?) ', os.popen('ip addr show ' + i).read())[0]
-        return ip,broadcast
+        return localIp,broadcast
     except Exception:
         print(warnBox + "Could not get network interface info. Please check and try again.")
         sys.exit()
 
-def listen_msearch(ip):
+def listen_msearch(localIp):
    print(okBox + "Listening for MSEARCH queries using {}.".format(interface))
-   listener = SSDPListener()
-   listener.run(ip)
+   listener = SSDPListener(localIp, localPort)
+   listener.run()
 
 
 def serve_descriptor(i):
@@ -55,9 +58,9 @@ def serve_descriptor(i):
 
 
 def main():
-   ip,broadcast = get_ip(interface)
-   listen_msearch(ip)
-   serve_descriptor(ip)
+   localIp,broadcast = get_ip(interface)
+   listen_msearch(localIp)
+   serve_descriptor(localIp)
 
 if __name__ == "__main__":
     main()
