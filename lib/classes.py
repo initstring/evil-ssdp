@@ -82,8 +82,10 @@ class DeviceDescriptor(BaseHTTPRequestHandler):
     def do_GET(self):
         xmlFile = '<root></root>'
         if self.path == '/ssdp/device-desc.xml':
-            print(noteBox + "Got it!")
             self.send_response(200)
             self.send_header('Content-type', 'application/xml')
             self.end_headers()
             self.wfile.write(xmlFile.encode())
+
+    def log_message(self, format, *args):
+        print(noteBox + "Someone took the bait!")
