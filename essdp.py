@@ -26,7 +26,10 @@ parser.add_argument('-n', '--name', type=str, help='Name of the Media Server. De
 args = parser.parse_args()
 
 interface = args.interface
-localPort = int(args.port) or 8888
+if args.port:
+    localPort = int(args.port)
+else:
+    localPort = 8888
 serverName = args.name or 'ePNP Media'
 
 # Set up some nice colors

@@ -64,22 +64,26 @@ class SSDPListener:
         lastSeen = str(time.time())
         dateFormat = formatdate(timeval=None, localtime=False, usegmt=True)
         reply = 'HTTP/1.1 200 OK\n'
+        reply += 'CACHE-CONTROL: max-age=1800\n'
         reply += 'DATE: ' + dateFormat + '\n'
         reply += 'EXT: \n'
-        reply += 'OPT: "http://schemas.upnp.org/upnp/1/0/"; ns=01\n'
         reply += 'LOCATION: ' + URL + '\n'
-        reply += 'SERVER: ' + self.serverName + '\n'
+        reply += 'SERVER: Linux/3.10.96+, UPnP/1.0, eSSDP/0.1\n'
         reply += 'ST: upnp:rootdevice\n'
-        reply += 'USN: uuid:e427ce1a-3e80-43d0-ad6f-89ec42e46363::upnp:rootdevice\n'
+        reply += 'USN: uuid:e415ce0a-3e62-22d0-ad3f-42ec42e36563\n'
         reply += 'BOOTID.UPNP.ORG: 0\n'
-        reply += 'CACHE-CONTROL: max-age=1800\n'
-        reply += 'last-seen: ' + lastSeen + '\n'
+        reply += 'CONFIGID.UPNP.ORG: 1\n'
+        reply += '\n\n'
         reply = bytes(reply, 'utf-8')
         self.sock.sendto(reply, address)
 
 class DeviceDescriptor(BaseHTTPRequestHandler):
+    
     def do_GET(self):
-        if self.path == '/test':
-            print("Got it!")
-
-        self.send_response(200)
+        xmlFile = '<root></root>'
+        if self.path == '/ssdp/device-desc.xml':
+            print(noteBox + "Got it!")
+            self.send_response(200)
+            self.send_header('Content-type', 'application/xml')
+            self.end_headers()
+            self.wfile.write(xmlFile.encode())
