@@ -17,6 +17,9 @@ class bcolors:
 okBox = bcolors.BLUE + '[*] ' + bcolors.ENDC
 noteBox = bcolors.GREEN + '[+] ' + bcolors.ENDC
 warnBox = bcolors.ORANGE + '[!] ' + bcolors.ENDC
+msearchBox = bcolors.BLUE + '[M-SEARCH] ' + bcolors.ENDC
+httpBox = bcolors.GREEN + '[HTTP REQUEST] ' + bcolors.ENDC
+
 
 class SSDPListener:
     def __init__(self, localIp, localPort, serverName):
@@ -60,7 +63,7 @@ class SSDPListener:
             except:
                 requestedST = 'ssdp:all'
             if address[0] not in self.knownHosts:
-                print(okBox + "Received an M-SEARCH query for {} from new host {}".format(requestedST, remoteIp))
+                print(msearchBox + "New Host {}, Service Type: {}".format(remoteIp, requestedST))
                 self.knownHosts.append(address[0])
             self.send_location(address, requestedST)
 
@@ -107,7 +110,8 @@ class DeviceDescriptor(BaseHTTPRequestHandler):
         headers = self.headers['user-agent']
         verb = self.command
         path = self.path
-        print("    " + noteBox + "{} ({}) did a {} on {}".format(address, headers, verb, path))
+        print(httpBox + "Host: {}, User-Agent: {}".format(address, headers))
+        print("               {} {}".format(verb, path))
     
     def buildDeviceXml(self):
         localIp,localPort = self.server.server_address
