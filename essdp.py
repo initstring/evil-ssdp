@@ -165,8 +165,7 @@ def buildServiceXML(deviceType):
     return xmlFile
 
 def buildPhish(template):
-    variables = {'localIp': localIp,
-		 'localPort': localPort}
+    variables = {'localIp': localIp}
     scriptDir = os.path.dirname(__file__)
     fileIn = open(scriptDir + '/templates/phish-{}'.format(template))
     template = Template(fileIn.read())
@@ -174,18 +173,18 @@ def buildPhish(template):
     return phishPage
 
 def serve_descriptor(deviceXML, serviceXML, phishPage):
-    HTTPClass = MakeHTTPClass(deviceXML, serviceXML, phishPage)
     print(okBox + "Serving device descriptor using {} at {} on port {}".format(interface, localIp, localPort))
+    HTTPClass = MakeHTTPClass(deviceXML, serviceXML, phishPage)
     descriptor = socketserver.TCPServer((localIp, localPort), HTTPClass)
     descriptor.serve_forever()
 
 def listen_msearch():
     print(okBox + "Listening for MSEARCH queries using {}.".format(interface))
     listener = SSDPListener(localIp, localPort, serverName)
-    # Receive/respond loop
     while True:
         data, address = listener.sock.recvfrom(1024)
         process_data(listener, data, address)
+
 
 def main():
     global localIp
