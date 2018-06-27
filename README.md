@@ -3,7 +3,7 @@ This tool responds to SSDP multicast discover requests, posing as a generic UPNP
 
 This works on Windows 10 systems (even if they have disabled NETBIOS and LLMNR) and requires no existing credentials to execute.
 
-I like to think of it as "LAN Phishing". :)
+<div align="center">![Demo-Video](ssdp.mp4)</div>
 
 <img src=slide.png>
 
