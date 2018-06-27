@@ -3,9 +3,7 @@ This tool responds to SSDP multicast discover requests, posing as a generic UPNP
 
 This works on Windows 10 systems (even if they have disabled NETBIOS and LLMNR) and requires no existing credentials to execute.
 
-<div align="center">![Demo-Video](ssdp.mp4)</div>
-
-<img src=slide.png>
+![Demo Video](ssdp.mp4)
 
 # Usage
 You need to provide the network interface at a minimum. The interface is used for both the UDP SSDP interaction as well as hosting a web server for the XML files and phishing page. The port is used only for the web server and defaults to 8888.
