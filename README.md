@@ -1,7 +1,7 @@
 # Overview
 This tool responds to SSDP multicast discover requests, posing as a generic UPNP device on a local network. Your spoofed device will magically appear in Windows Explorer on machines in your local network. Users who are tempted to open the device are shown a configurable webpage. By default, this page will load a hidden image over SMB, allowing you to capture or relay their NTLM password hash.
 
-This works on Windows 10 systems (even if they have disabled NETBIOS and LLMNR) and requires no existing credentials to execute.
+This works against Windows 10 systems (even if they have disabled NETBIOS and LLMNR) and requires no existing credentials to execute.
 
 ![Demo Video](ssdp.mp4)
 
