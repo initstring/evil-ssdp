@@ -10,6 +10,8 @@ You need to provide the network interface at a minimum. The interface is used fo
 
 The tool will automatically inject an IMG tag into the phishing page using the IP of the interface you provide. To work with hashes, you'll need to launch an SMB server at that interface. This can be customized in a future version.
 
+You do NOT need to edit the variables in the template file - the tool will do this automatically.
+
 You can choose between the included templates in the "templates" folder, or build your own simply by duplicating an existing folder and editing the files inside. This allows you to customize the device name, the phishing contents page, or even build a totally new type of UPNP device that I haven't created yet.
 
 ```
@@ -24,7 +26,7 @@ optional arguments:
   -t TEMPLATE, --template TEMPLATE
                         Name of a folder in the templates directory. Defaults
                         to "password-vault". This will determine xml and
-                        phishing pages used."
+                        phishing pages used.
 
   ```
 
