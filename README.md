@@ -6,13 +6,19 @@ This works against Windows 10 systems (even if they have disabled NETBIOS and LL
 ![Demo Video](ssdp.mp4)
 
 # Usage
+A typical run looks like this:
+
+```
+essdp.py eth0
+```
+
 You need to provide the network interface at a minimum. The interface is used for both the UDP SSDP interaction as well as hosting a web server for the XML files and phishing page. The port is used only for the web server and defaults to 8888.
 
-The tool will automatically inject an IMG tag into the phishing page using the IP of the interface you provide. To work with hashes, you'll need to launch an SMB server at that interface. This can be customized in a future version.
+The tool will automatically inject an IMG tag into the phishing page using the IP of the interface you provide. To work with hashes, you'll need to launch an SMB server at that interface (like Impacket). This address can be customized with the `-s` option. 
 
-You do NOT need to edit the variables in the template file - the tool will do this automatically.
+You do NOT need to edit the variables in the template files - the tool will do this automatically.
 
-You can choose between the included templates in the "templates" folder, or build your own simply by duplicating an existing folder and editing the files inside. This allows you to customize the device name, the phishing contents page, or even build a totally new type of UPNP device that I haven't created yet.
+You can choose between the included templates in the "templates" folder or build your own simply by duplicating an existing folder and editing the files inside. This allows you to customize the device name, the phishing contents page, or even build a totally new type of UPNP device that I haven't created yet.
 
 ```
 usage: essdp.py [-h] [-p PORT] [-t TEMPLATE] interface
@@ -27,10 +33,13 @@ optional arguments:
                         Name of a folder in the templates directory. Defaults
                         to "password-vault". This will determine xml and
                         phishing pages used.
-
+  -s SMB, --smb SMB     IP address of your SMB server. Defalts to the primary
+                        address of the "interface" provided.
   ```
 
-# Workflow
+# Technical Details
+Simple Service Discovery Protocol (SSDP) is used by Operating Systems (Windows, MacOS, Linux, IOS, Android, etc) and applications (Spotify, Youtube, etc) to discover shared devices on a local network. It is the foundation for discovering and advertising Universal Plug & Play (UPNP) devices.
+
 Devices attempting to discover shared network resources will send a UDP multicast out to 239.255.255.250 on port 1900. The source port is randomized. An example request looks like this:
 ```
 M-SEARCH * HTTP/1.1
@@ -103,7 +112,7 @@ The IMG tage looks like this:
 ```
 
 # Customization
-This is an early POC, but constructed in such a way to allow easy template creation in the future. I've included two very basic templates - simply duplicate a template folder and customize for your own use. Then use the '-t' parameter to choose your new template.
+This is an early beta, but constructed in such a way to allow easy template creation in the future. I've included two very basic templates - simply duplicate a template folder and customize for your own use. Then use the '-t' parameter to choose your new template.
 
 The tool currently only correctly creates devices for the UPNP 'rootdevice' device type, although it is responding to the SSDP queries for all devices types. If you know UPNP well, you can create a new template with the correct parameters to fufill requests for other device types as well.
 

