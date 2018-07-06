@@ -3,7 +3,7 @@ This tool responds to SSDP multicast discover requests, posing as a generic UPNP
 
 This works against Windows 10 systems (even if they have disabled NETBIOS and LLMNR) and requires no existing credentials to execute.
 
-As a bonus, this tool can also detect and exploit potential zero-day vulnerabilities in the XML parsing engines of applications using SSDP/UPNP. To try this, use the 'xxe-smb' template. If a vulnerable device is found, it will alert you in the UI and then mount your SMB share with NO USER INTERACTION required via an XLM External Entity (XXE) attack. If you get lucky and find one of those, you can probably snag yourself a nice snazzy CVE (please reference evilSSDP in the disclosure if you do).
+As a bonus, this tool can also detect and exploit potential zero-day vulnerabilities in the XML parsing engines of applications using SSDP/UPNP. To try this, use the 'xxe-smb' template. If a vulnerable device is found, it will alert you in the UI and then mount your SMB share with NO USER INTERACTION required via an XML External Entity (XXE) attack. If you get lucky and find one of those, you can probably snag yourself a nice snazzy CVE (please reference evilSSDP in the disclosure if you do).
 
 If you are feeling brave, play around with the 'xxe-exfil' template. It works against Windows hosts to exfiltrate files with only 1 line of text. After 1 line, it breaks the required URL that sends you the file contents.
 
