@@ -19,6 +19,7 @@ ___________     .__.__    _________ _________________ __________
         \/                      \/        \/         \/
 
 ...by initstring (gitlab.com/initstring)
+Additional contributors: Dwight Hohnstein
 '''
 
 print(banner)
