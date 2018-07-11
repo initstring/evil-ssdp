@@ -1,6 +1,8 @@
 # Overview
 This tool responds to SSDP multicast discover requests, posing as a generic UPNP device on a local network. Your spoofed device will magically appear in Windows Explorer on machines in your local network. Users who are tempted to open the device are shown a configurable webpage. By default, this page will load a hidden image over SMB, allowing you to capture or relay the NetNTLM challenge/response.
 
+Templates are included to try getting clear-text credentials via Basic Auth and fake logon forms.
+
 This works against Windows 10 systems (even if they have disabled NETBIOS and LLMNR) and requires no existing credentials to execute.
 
 As a bonus, this tool can also detect and exploit potential zero-day vulnerabilities in the XML parsing engines of applications using SSDP/UPNP. To try this, use the 'xxe-smb' template. If a vulnerable device is found, it will alert you in the UI and then mount your SMB share with NO USER INTERACTION required via an XML External Entity (XXE) attack. If you get lucky and find one of those, you can probably snag yourself a nice snazzy CVE (please reference evilSSDP in the disclosure if you do).
@@ -8,7 +10,7 @@ As a bonus, this tool can also detect and exploit potential zero-day vulnerabili
 ![Demo Video](ssdp.mp4)
 
 # Usage
-A typical run looks like this:
+The most basic run looks like this:
 
 ```
 essdp.py eth0
@@ -23,7 +25,8 @@ You do NOT need to edit the variables in the template files - the tool will do t
 You can choose between the included templates in the "templates" folder or build your own simply by duplicating an existing folder and editing the files inside. This allows you to customize the device name, the phishing contents page, or even build a totally new type of UPNP device that I haven't created yet.
 
 ```
-usage: essdp.py [-h] [-p PORT] [-t TEMPLATE] interface
+usage: essdp.py [-h] [-p PORT] [-t TEMPLATE] [-s SMB] [-b] [-r REALM] [-u URL]
+                interface
 
 positional arguments:
   interface             Network interface to listen on.
@@ -37,15 +40,24 @@ optional arguments:
                         phishing pages used.
   -s SMB, --smb SMB     IP address of your SMB server. Defalts to the primary
                         address of the "interface" provided.
-  ```
+  -b, --basic           Enable base64 authentication for templates and write
+                        credentials to creds.txt
+  -r REALM, --realm REALM
+                        Realm to appear when prompting users for
+                        authentication via base64 auth.
+  -u URL, --url URL     Add javascript to the template to redirect from the
+                        phishing page to the provided URL.
+```
 
 # Templates
 The following templates come with the tool. If you have good design skills, please contribute one of your own!
 
-- `bitcoin`:    Will show up in Windows Explorer as "Bitcoin Wallet". Phishing page is just a random set of Bitcoin private/public/address info. There are no actual funds in these accounts.
-- `password-vault`: Will show up in Windows Explorer as "IT Password Vault". Phishing page contains a short list of fake passwords / ssh keys / etc.
-- `xxe-smb`: Will not likely show up in Windows Explorer. Used for finding zero day vulnerabilities in XML parsers. Will trigger an "XXE - VULN" alert in the UI for hits and will attempt to force clients to authenticate with the SMB server, with 0 interaction.
-- `xxe-exfil`: Another example of searching for XXE vulnerabilities, but this time attempting to exfiltrate a test file from a Windows host. Of course you can customize this to look for whatever specific file you are after, Windows or Linux. In the vulnerable applications I've discovered, exfiltration works only on a file with no whitepace or linebreaks. This is due to how it is injected into the URL of a GET request. If you get this working on multi-line files, PLEASE let me know how you did it.
+- `office365`:          Will show up in Windows Explorer as "Office365 Backups". Will send to a nice looking phishing page that will POST credentials back. These will be flagged in the UI and logged in the log file. Will redirect back to the phishing page after POST. Future improvement might be to redirect to actual Office365. Developer: [pentestgeek](https://github.com/pentestgeek/phishing-frenzy-templates).
+- `microsft-azure`:     Will appear in Windows Explorer as "Microsoft Azure Storage". Landing page is the Windows Live login page when cookies are disabled. Recommend to use with the -u option to redirect users to real login page. Developer: [Dwight Hohnstein](https://github.com/djhohnstein).
+- `bitcoin`:            Will show up in Windows Explorer as "Bitcoin Wallet". Phishing page is just a random set of Bitcoin private/public/address info. There are no actual funds in these accounts.
+- `password-vault`:     Will show up in Windows Explorer as "IT Password Vault". Phishing page contains a short list of fake passwords / ssh keys / etc.
+- `xxe-smb`:            Will not likely show up in Windows Explorer. Used for finding zero day vulnerabilities in XML parsers. Will trigger an "XXE - VULN" alert in the UI for hits and will attempt to force clients to authenticate with the SMB server, with 0 interaction.
+- `xxe-exfil`:          Another example of searching for XXE vulnerabilities, but this time attempting to exfiltrate a test file from a Windows host. Of course you can customize this to look for whatever specific file you are after, Windows or Linux. In the vulnerable applications I've discovered, exfiltration works only on a file with no whitepace or linebreaks. This is due to how it is injected into the URL of a GET request. If you get this working on multi-line files, PLEASE let me know how you did it.
 
 # Technical Details
 Simple Service Discovery Protocol (SSDP) is used by Operating Systems (Windows, MacOS, Linux, IOS, Android, etc) and applications (Spotify, Youtube, etc) to discover shared devices on a local network. It is the foundation for discovering and advertising Universal Plug & Play (UPNP) devices.
@@ -147,5 +159,7 @@ The tool currently only correctly creates devices for the UPNP 'rootdevice' devi
 
 # Thanks
 Thanks to ZeWarren and his project [here](https://github.com/ZeWaren/python-upnp-ssdp-example). I used this extensively to understand how to get the basics for SSDP working.
+Thanks to the pentest geek and their phishing templates [here](https://github.com/pentestgeek/phishing-frenzy-templates). I used the Office365 login page from there.
+Thanks to [Dwight Hohnstein](https://github.com/djhohnstein) for his great work to implement cool features like basic authentication, realm support, and automatic redirection in evilSSDP. He kindly wrote and provided code to make this work.
 
 Also thanks to Microsoft for developing lots of fun insecure things to play with.
