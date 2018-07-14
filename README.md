@@ -197,3 +197,5 @@ When a vulnerable XML parser reads this file, it will automatically mount the SM
 - Thanks to [Dwight Hohnstein](https://github.com/djhohnstein) for his great work to implement cool features like basic authentication, realm support, and automatic redirection in evilSSDP. He kindly wrote and provided code to make this work.
 
 Also thanks to Microsoft for developing lots of fun insecure things to play with.
+
+*This is a security research tool. Use only where granted explicit permission from the network owner.*
