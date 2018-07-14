@@ -1,15 +1,13 @@
 # Overview
-## eSSDP as a "LAN Phishing" tool
 This tool responds to SSDP multicast discover requests, posing as a generic UPNP device on a local network. Your spoofed device will magically appear in Windows Explorer on machines in your local network. Users who are tempted to open the device are shown a configurable webpage. By default, this page will load a hidden image over SMB, allowing you to capture or relay the NetNTLM challenge/response.
 
-Templates are included to try getting clear-text credentials via Basic Auth and fake logon forms. Creating your own custom templat
+Templates are also provided to capture clear-text credentials via basic authentication and logon forms, and creating your own custom templates is quick and easy.
 
-This works against Windows 10 systems (even if they have disabled NETBIOS and LLMNR) and requires no existing credentials to execute.
-
-## eSSDP for Hunting Zero-Days
-As a bonus, this tool can also detect and exploit potential zero-day vulnerabilities in the XML parsing engines of applications using SSDP/UPNP. To try this, use the 'xxe-smb' template. If a vulnerable device is found, it will alert you in the UI and then mount your SMB share with NO USER INTERACTION required via an XML External Entity (XXE) attack. If you get lucky and find one of those, you can probably snag yourself a nice snazzy CVE (please reference evilSSDP in the disclosure if you do).
+This works against all modern Operating Systems (including Windows 10 even if they have disabled NETBIOS and LLMNR) and requires no existing credentials to execute.
 
 ![Demo Video](ssdp.mp4)
+
+As a bonus, this tool can also detect and exploit potential zero-day vulnerabilities in the XML parsing engines of applications using SSDP/UPNP. To try this, use the 'xxe-smb' template. If a vulnerable device is found, it will alert you in the UI and then mount your SMB share with NO USER INTERACTION required via an XML External Entity (XXE) attack. 
 
 # Usage
 The most basic run looks like this:
@@ -170,7 +168,7 @@ This is accomplished by providing a Device Descriptor XML file with the followin
 <hello>&xxe;&xxe-url;</hello>
 ```
 
-When a vulnerable XML parser reads this file, it will automatically mount the SMB share (allowing you to crack the hash or relay) as well as access an HTTP URL to notify you it was discovered. The notification will contain the HTTP headers and an IP address, which should give you some info on the vulnerable application. If you see this, please do contact the vendor to fix the issue. Also, I would love to hear about any zero days you find using the tool.
+When a vulnerable XML parser reads this file, it will automatically mount the SMB share (allowing you to crack the hash or relay) as well as access an HTTP URL to notify you it was discovered. The notification will contain the HTTP headers and an IP address, which should give you some info on the vulnerable application. If you see this, please do contact the vendor to fix the issue. Also, I would love to hear about any zero days you find using the tool. And please do mention the tool in your CVE.
 
 # Customization
 This is an early beta, but constructed in such a way to allow easy template creation in the future. I've included two very basic templates - simply duplicate a template folder and customize for your own use. Then use the '-t' parameter to choose your new template.
