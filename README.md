@@ -51,7 +51,7 @@ optional arguments:
   -p PORT, --port PORT  Port for HTTP server. Defaults to 8888.
   -t TEMPLATE, --template TEMPLATE
                         Name of a folder in the templates directory. Defaults
-                        to "password-vault". This will determine xml and
+                        to "office365". This will determine xml and
                         phishing pages used.
   -s SMB, --smb SMB     IP address of your SMB server. Defalts to the primary
                         address of the "interface" provided.

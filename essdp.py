@@ -45,8 +45,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument('interface', type=str, help='Network interface to listen on.', action='store')
 parser.add_argument('-p', '--port', type=str, default=8888, help='Port for HTTP server. Defaults to 8888.'
                     , action='store')
-parser.add_argument('-t', '--template', type=str, default='password-vault', help='Name of a folder in the templates \
-                    directory. Defaults to "password-vault". This will determine xml and phishing pages used.'
+parser.add_argument('-t', '--template', type=str, default='office365', help='Name of a folder in the templates \
+                    directory. Defaults to "office365". This will determine xml and phishing pages used.'
                      , action='store')
 parser.add_argument('-s', '--smb', type=str, help='IP address of your SMB server. Defalts to the \
                     primary address of the "interface" provided.', action='store')
