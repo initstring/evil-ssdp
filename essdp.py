@@ -225,8 +225,10 @@ def MakeHTTPClass(deviceXML, serviceXML, phishPage, exfilDTD):
                 print(data)
                 self.write_log(data)
             elif 'exfiltrated' in self.path:
-                print(exfilBox + "Host: {}, User-Agent: {}".format(address, agent))
-                print("               {} {}".format(verb, path))
+                data = exfilBox + "Host: {}, User-Agent: {}\n".format(address, agent)
+                data += "               {} {}".format(verb, path)
+                print(data)
+                self.write_log(data)
             else:
                 print(phishBox + "Host: {}, User-Agent: {}".format(address, agent))
                 print("               {} {}".format(verb, path))
