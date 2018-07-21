@@ -248,7 +248,7 @@ def get_ip():
     This is used for serving the XML files and also for the SMB pointer, if not specified.
     """
     try:
-        localIp = re.findall(r'inet (.*?) ', os.popen('ifconfig ' + interface).read())[0]
+        localIp = re.findall(r'inet (?:addr:)?(.*?) ', os.popen('ifconfig ' + interface).read())[0]
     except Exception:
         print(warnBox + "Could not get network interface info. Please check and try again.")
         sys.exit()
