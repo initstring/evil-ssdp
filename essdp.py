@@ -58,7 +58,8 @@ parser.add_argument("-u", "--url", type=str, default="", help="Add javascript to
                     phishing page to the provided URL.", action="store")
 args = parser.parse_args()
 
-interface = args.interface
+charWhitelist = re.compile('[^a-zA-Z0-9 ._-]')        # Defining a list of expected characters for a network device 
+interface = charWhitelist.sub('', args.interface)     # Avoiding command injection vulnerabilities
 localPort = int(args.port)
 templateDir = os.path.dirname(__file__) + '/templates/' + args.template
 isAuth = args.basic
