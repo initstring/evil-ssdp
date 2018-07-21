@@ -12,4 +12,6 @@ I'd like to keep the tool pretty straightforward, so that it does one thing and 
 
 Before you spend a lot of time re-writing something massive, it might be worth contacting me first just to make sure I'm not in the middle of a conflicting re-write. You can open an issue or try me at protonmail.
 
+I may redirect commits to the dev branch for some burning in before pushing to master. If there is any type of credit of special handling you'd like with your contribution, please let me know and I will do my best to oblige.
+
 Thanks for reading!
