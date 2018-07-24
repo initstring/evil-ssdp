@@ -5,7 +5,12 @@ Templates are also provided to capture clear-text credentials via basic authenti
 
 This requires no existing credentials to execute and works even on networks that have protected against Responder attacks by disabling NETBIOS and LLMNR. Any Operating System or application leveraging SSDP/UPNP can be targeted, but most of the current weaponization has been aimed at Windows 10.
 
-![Demo Video](ssdp.mp4)
+<!-- blank line -->
+<figure class="video_container">
+  <iframe src="https://player.vimeo.com/video/281395480" width="640" height="360" frameborder="0" webkitallowfullscreen mozallowfullscreen allowfullscreen></iframe>
+</figure>
+<!-- blank line -->
+
 
 As a bonus, this tool can also detect and exploit potential zero-day vulnerabilities in the XML parsing engines of applications using SSDP/UPNP. If a vulnerable device is found, it will alert you in the UI and then mount your SMB share with NO USER INTERACTION REQUIRED via an XML External Entity (XXE) attack. 
 
