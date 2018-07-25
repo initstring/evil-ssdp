@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
 
+import sys
+if sys.version_info < (3, 0):
+    print("\nSorry mate, you'll need to use Python 3+ on this one...\n")
+    sys.exit(1)
+
 from multiprocessing import Process
 from string import Template
 from http.server import BaseHTTPRequestHandler
@@ -8,7 +13,7 @@ from http.server import HTTPServer
 from email.utils import formatdate
 from time import sleep
 from ipaddress import ip_address
-import os,sys,re,argparse,socket,struct,time,re,signal,base64;
+import os,re,argparse,socket,struct,time,re,signal,base64;
 
 banner = r'''
 ___________     .__.__    _________ _________________ __________
