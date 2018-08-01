@@ -7,7 +7,7 @@ This requires no existing credentials to execute and works even on networks that
 
 ![Phishing Overview](https://filedn.com/lawDInIqGS3h9zy6QM1YNQQ/essdp-phishing.mp4)
 
-As a bonus, this tool can also detect and exploit potential zero-day vulnerabilities in the XML parsing engines of applications using SSDP/UPNP. If a vulnerable device is found, it will alert you in the UI and then mount your SMB share with NO USER INTERACTION REQUIRED via an XML External Entity (XXE) attack. 
+As a bonus, this tool can also detect and exploit potential zero-day vulnerabilities in the XML parsing engines of applications using SSDP/UPNP. If a vulnerable device is found, it will alert you in the UI and then mount your SMB share or exfiltre data with NO USER INTERACTION REQUIRED via an XML External Entity (XXE) attack. 
 ![0-Day Overview](https://filedn.com/lawDInIqGS3h9zy6QM1YNQQ/essdp-0days.mp4)
 
 # Usage
@@ -17,9 +17,9 @@ The most basic run looks like this:
 essdp.py eth0
 ```
 
-You need to provide the network interface at a minimum. The interface is used for both the UDP SSDP interaction as well as hosting a web server for the XML files and phishing page. The port is used only for the web server and defaults to 8888.
+You need to provide the network interface at a minimum. The interface is used for both the UDP SSDP interaction as well as hosting a web server for the XML files and phishing page.
 
-The tool will automatically inject an IMG tag into the phishing page using the IP of the interface you provide. To work with hashes, you'll need to launch an SMB server at that interface (like Impacket). This address can be customized with the `-s` option. 
+The tool will automatically update an IMG tag in the phishing page using the IP of the interface you provide. To work with challenge/response, you'll need to launch an SMB server at that interface (like Impacket). This address can be customized with the `-s` option. 
 
 Some example scenarios:
 
