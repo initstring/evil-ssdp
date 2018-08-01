@@ -7,7 +7,7 @@ This requires no existing credentials to execute and works even on networks that
 
 ![Phishing Overview](https://filedn.com/lawDInIqGS3h9zy6QM1YNQQ/essdp-phishing.mp4)
 
-As a bonus, this tool can also detect and exploit potential zero-day vulnerabilities in the XML parsing engines of applications using SSDP/UPNP. If a vulnerable device is found, it will alert you in the UI and then mount your SMB share or exfiltre data with NO USER INTERACTION REQUIRED via an XML External Entity (XXE) attack. 
+As a bonus, this tool can also detect and exploit potential zero-day vulnerabilities in the XML parsing engines of applications using SSDP/UPNP. If a vulnerable device is found, it will alert you in the UI and then mount your SMB share or exfiltrate data with NO USER INTERACTION REQUIRED via an XML External Entity (XXE) attack. 
 ![0-Day Overview](https://filedn.com/lawDInIqGS3h9zy6QM1YNQQ/essdp-0days.mp4)
 
 # Usage
