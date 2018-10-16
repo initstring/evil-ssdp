@@ -1,29 +1,28 @@
-<root>
-    <specVersion>
-        <major>1</major>
-        <minor>0</minor>
-    </specVersion>
-    <device>
-        <deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>
-        <friendlyName>Microsoft Azure Storage</friendlyName>
-        <manufacturer>Micorosft Corporation</manufacturer>
-	<manufacturerURL>https://azure.microsoft.com</manufacturerURL>
-        <modelDescription>Azure Cloud Storage Solution</modelDescription>
-        <modelName>Core</modelName>
-        <modelNumber>414289</modelNumber>
-        <modelURL>https://azure.microsoft.com/en-us/services/storage/#modelNumber=414289</modelURL>
-        <serialNumber>414289</serialNumber>
-        <UDN>uuid:e415ce0a-3e62-22d0-ad3f-42ec42e36563</UDN>
-        <serviceList>
-            <service>
-                <URLBase>http://$localIp:$localPort</URLBase>
-                <serviceType>urn:microsoft.com:service:ePNP:1</serviceType>
-                <serviceId>urn:azure.microsoft.com:serviceId:AzurePNP</serviceId>
-                <controlURL>/AzurePNP</controlURL>
-                <eventSubURL/>
-                <SCPDURL>/service-desc.xml</SCPDURL>
-            </service>
-        </serviceList>
-        <presentationURL>http://$localIp:$localPort/present.html</presentationURL>
-        </device>
-    </root>
+<?xml version="1.0"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0">
+  <specVersion>
+    <major>1</major>
+    <minor>0</minor>
+  </specVersion>
+  <URLBase>http://$local_ip:$local_port</URLBase>
+  <device>
+    <presentationURL>http://$local_ip:$local_port/present.html</presentationURL>
+    <deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>
+    <friendlyName>Microsoft Azure Storage</friendlyName>
+    <modelDescription>Azure Cloud Storage Solution</modelDescription>
+    <manufacturer>Microsoft Corporation</manufacturer>
+    <modelName>Core</modelName>
+    <UDN>$session_usn</UDN>
+    <serviceList>
+      <service>
+        <serviceType>urn:schemas-upnp-org:device:Basic:1</serviceType>
+        <serviceId>urn:schemas-upnp-org:device:Basic</serviceId>
+        <controlURL>/ssdp/service-desc.xml</controlURL>
+        <eventSubURL>/ssdp/service-desc.xml</eventSubURL>
+        <SCPDURL>/ssdp/service-desc.xml</SCPDURL>
+      </service>
+    </serviceList>
+
+  </device>
+</root>
+

