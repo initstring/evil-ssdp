@@ -84,11 +84,12 @@ class SSDPListener:
     main() function below.
     """
 
-    def __init__(self, local_ip, local_port):
+    def __init__(self, local_ip, local_port, analyze):
         self.sock = None
         self.known_hosts = []
         self.local_ip = local_ip
         self.local_port = local_port
+        self.analyze_mode = analyze
         ssdp_port = 1900  # Defined by SSDP spec, do not change
         mcast_group = '239.255.255.250'  # Defined by SSDP spec, do not change
         server_address = ('', ssdp_port)
@@ -173,9 +174,6 @@ class SSDPListener:
         back, telling the client that we have the device type they are looking
         for.
 
-        If it can't extract the ST, it will reply back with a generic
-        'ssdp:all' device type and hope for the best.
-
         The function will log the first time a client does a specific type of
         M-SEARCH - after that it will be silent. This keeps the output more
         readable, as clients can get chatty.
@@ -189,7 +187,8 @@ class SSDPListener:
                     print(PC.msearch_box + "New Host {}, Service Type: {}"
                           .format(remote_ip, requested_st))
                     self.known_hosts.append((address[0], requested_st))
-                self.send_location(address, requested_st)
+                if not self.analyze_mode:
+                    self.send_location(address, requested_st)
             else:
                 print(PC.detect_box + "Odd ST ({}) from {}. Possible"
                       "detection tool!".format(requested_st, remote_ip))
@@ -493,7 +492,7 @@ def process_args():
     parser.add_argument('-b', '--basic', action="store_true",
                         default=False,
                         help=('Enable base64 authentication for templates and '
-                              'write credentials to creds.txt'))
+                              'write credentials to log file.'))
     parser.add_argument("-r", "--realm", type=str, action='store',
                         default='Microsoft Corporation',
                         help='Realm when prompting target for authentication '
@@ -505,6 +504,11 @@ def process_args():
                               'templates that include the custom redirect '
                               'JavaScript (see README for more info).'
                               '[example: -r https://google.com]'))
+    parser.add_argument("-a", "--analyze", action="store_true",
+                        default=False,
+                        help=('Run in analyze mode. Will NOT respond to any'
+                              ' SSDP queries, but will still enable and run'
+                              ' the web server for testing.'))
     args = parser.parse_args()
 
     # The following two lines help to avoid command injection in bash.
@@ -590,6 +594,8 @@ def print_details(args, local_ip, smb_server):
         print(PC.ok_box + "EXFIL PAGE:              {}".format(exfil_url))
     else:
         print(PC.ok_box + "SMB POINTER:             {}".format(smb_url))
+    if args.analyze:
+        print(PC.warn_box + "ANALYZE MODE:            ENABLED")
     print("########################################")
     print("\n\n")
 
@@ -620,7 +626,7 @@ def main():
     local_ip = get_ip(args)
     smb_server = set_smb(args, local_ip)
 
-    listener = SSDPListener(local_ip, args.local_port)
+    listener = SSDPListener(local_ip, args.local_port, args.analyze)
     ssdp_server = Process(target=listen_msearch, args=(listener,))
 
     upnp_args = {'template_dir':args.template_dir,
