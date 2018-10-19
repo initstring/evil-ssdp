@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0">
+  <specVersion>
+    <major>1</major>
+    <minor>0</minor>
+  </specVersion>
+  <URLBase>http://$local_ip:$local_port</URLBase>
+  <device>
+    <presentationURL>http://$local_ip:$local_port/present.html</presentationURL>
+    <deviceType>urn:schemas-upnp-org:device:Scanner:1</deviceType>
+    <friendlyName>Corporate Scanner [3 NEW SCANS WAITING]</friendlyName>
+    <modelDescription>Confidential document scanner.</modelDescription>
+    <manufacturer>Xerox</manufacturer>
+    <modelName>ScanMaster5000</modelName>
+    <UDN>$session_usn</UDN>
+    <serviceList>
+      <service>
+        <serviceType>urn:schemas-upnp-org:device:ScannerBasic:1</serviceType>
+        <serviceId>urn:schemas-upnp-org:device:ScannerBasic</serviceId>
+        <controlURL>/ssdp/service-desc.xml</controlURL>
+        <eventSubURL>/ssdp/service-desc.xml</eventSubURL>
+        <SCPDURL>/ssdp/service-desc.xml</SCPDURL>
+      </service>
+    </serviceList>
+
+  </device>
+</root>
