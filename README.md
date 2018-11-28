@@ -216,7 +216,7 @@ When a vulnerable XML parser reads this file, it will automatically mount the SM
 - Thanks to the pentest geek and their phishing templates [here](https://github.com/pentestgeek/phishing-frenzy-templates). I used the Office365 login page from there.
 - Thanks to [Dwight Hohnstein](https://github.com/djhohnstein) for his great work to implement cool features like basic authentication, realm support, and automatic redirection in evil_ssdp. He kindly wrote and provided code to make this work.
 - Thanks to the following folks for submitting bugfixes:
-    - Nadar, Ender Akbas
+    - Nadar, Ender Akbas, bubbleguuum
 
 Also thanks to Microsoft for developing lots of fun insecure things to play with.
 

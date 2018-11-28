@@ -109,6 +109,7 @@ class SSDPListener:
 
         # Create the socket
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
         # Bind to the server address
         self.sock.bind(server_address)
@@ -179,7 +180,7 @@ class SSDPListener:
         readable, as clients can get chatty.
         """
         remote_ip = address[0]
-        header_st = re.findall(r'\\r\\nST:(.*?)\\r\\n', str(data))
+        header_st = re.findall(r'(?i)\\r\\nST:(.*?)\\r\\n', str(data))
         if 'M-SEARCH' in str(data) and header_st:
             requested_st = header_st[0].strip()
             if re.match(self.valid_st, requested_st):
