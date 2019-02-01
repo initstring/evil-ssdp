@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-evil-ssdp by initstring (gitlab.com/initstring)
+evil-ssdp by initstring (github.com/initstring)
 
 This tool is used to respond to SSDP queries on a LAN, creating fake UPNP
 devices that appear in Windows Explorer and inside various applications.
@@ -43,8 +43,7 @@ ___________     .__.__    _________ _________________ __________
 /_______  / \_/ |__|____/_______  /_______  //_______  /____|
         \/                      \/        \/         \/
 
-...by initstring (gitlab.com/initstring)
-Additional contributors: Dwight Hohnstein
+...by initstring (github.com/initstring)
 '''
 
 print(BANNER)
