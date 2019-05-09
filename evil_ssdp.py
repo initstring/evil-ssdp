@@ -74,6 +74,11 @@ class PC:
     exfil_box = red + '[EXFILTRATION] ' + endc
     detect_box = orange + '[DETECTION]    ' + endc
 
+    # Multi-line print statements will want matching indentation. Setting the
+    # variable here so there is only one place to change if these tags
+    # evolve in the future
+    indent = 15 * " "
+
 
 class SSDPListener:
     """UDP multicast listener for SSDP queries
@@ -184,8 +189,9 @@ class SSDPListener:
             requested_st = header_st[0].strip()
             if re.match(self.valid_st, requested_st):
                 if (address[0], requested_st) not in self.known_hosts:
-                    print(PC.msearch_box + "New Host {}, Service Type: {}"
-                          .format(remote_ip, requested_st))
+                    print(PC.msearch_box + "New Host {}\n".format(remote_ip) +
+                          PC.indent +
+                          "Service Type: {}".format(requested_st))
                     self.known_hosts.append((address[0], requested_st))
                 if not self.analyze_mode:
                     self.send_location(address, requested_st)
@@ -301,10 +307,8 @@ def build_class(upnp_args):
                 BaseHTTPRequestHandler.handle(self)
             except socket.error:
                 print(PC.detect_box + "{} connected but did not complete a"
-                      " valid HTTP verb. This is sometimes indicitive of a"
-                      " port scan or a detection tool."
-                      .format(self.address_string()))
-
+                      " valid HTTP verb.".format(self.address_string()))
+                print(PC.indent + "Possible port scan.")
         def do_GET(self):
             """
             Handles all GET requests. Overwrites super class.
@@ -404,8 +408,52 @@ def build_class(upnp_args):
             with open('logs-essdp.txt', 'a') as log_file:
                 time_stamp = formatdate(timeval=None, localtime=True,
                                         usegmt=False)
-                log_file.write(time_stamp + ":    " + data + "\n")
+                log_file.write(time_stamp + "\n" + data + "\n\n")
                 log_file.close()
+
+        @staticmethod
+        def split_log(data):
+            """
+            Used to split a string to fit nicely in an indented log.
+            """
+            col_width = 80 - len(PC.indent)
+            formatted = ''
+
+            for line in data:
+                # Create a list of strings to fit in the indented space
+                split = ([PC.indent + line[i:i+col_width]
+                          for i in range(0, len(line), col_width)])
+
+                # Transform the list into a string with line breaks
+                clean = '\n'.join(split)
+                formatted += clean
+
+            return formatted
+
+        def logger(self, tag, critical=False):
+            """
+            This function de-duplicates the multiple logging items in
+            log_messages.
+
+            That particular function name is required due to inheritence, hence
+            the multiple similar sounding functions.
+            """
+            address = self.address_string()
+            agent = self.headers['user-agent']
+            verb = self.command
+            path = self.path
+
+            log_msg = tag + "Host: {}\n".format(address)
+            data = ["User Agent: {}\n".format(agent),
+                    "{} {}".format(verb, path)]
+
+            # Split long lines to fit and properly indent
+            log_msg += self.split_log(data)
+            print(log_msg)
+
+            # Write important logs to the logfile
+            if critical:
+                self.write_log(log_msg)
 
         def log_message(self, format, *args):
             """
@@ -420,16 +468,29 @@ def build_class(upnp_args):
             agent = self.headers['user-agent']
             verb = self.command
             path = self.path
+
+            # First handle automated XML parsing - normal behaviour
             if 'xml' in self.path:
-                print(PC.xml_box + "Host: {}, User-Agent: {}"
-                      .format(address, agent))
-                print("               {} {}".format(verb, path))
+                tag = PC.xml_box
+                self.logger(tag, critical=False)
+
+            # Next handle XXE vulnerabilities
             elif 'xxe.html' in self.path:
-                data = PC.xxe_box + "Host: {}, User-Agent: {}\n".format(
-                    address, agent)
-                data += "               {} {}".format(verb, path)
-                print(data)
-                self.write_log(data)
+                tag = PC.xxe_box
+                self.logger(tag, critical=True)
+            elif 'data.dtd' in self.path:
+                tag = PC.xxe_box
+                self.logger(tag, critical=True)
+            elif 'exfiltrated' in self.path:
+                tag = PC.exfil_box
+                self.logger(tag, critical=True)
+
+            # The following is viewing a phishing page
+            elif 'present.html' in self.path:
+                tag = PC.phish_box
+                self.logger(tag, critical=True)
+
+            # Next is gathering form-based credentials
             elif 'do_login' in self.path:
                 content_length = int(self.headers['Content-Length'])
                 post_body = self.rfile.read(content_length)
@@ -438,30 +499,25 @@ def build_class(upnp_args):
                     address, credentials)
                 print(data)
                 self.write_log(data)
-            elif 'data.dtd' in self.path:
-                data = PC.xxe_box + "Host: {}, User-Agent: {}\n".format(
-                    address, agent)
-                data += "               {} {}".format(verb, path)
-                print(data)
-                self.write_log(data)
-            elif 'exfiltrated' in self.path:
-                data = PC.exfil_box + "Host: {}, User-Agent: {}\n".format(
-                    address, agent)
-                data += "               {} {}".format(verb, path)
-                print(data)
-                self.write_log(data)
-            elif 'present.html' in self.path:
-                print(PC.phish_box + "Host: {}, User-Agent: {}".format(
-                    address, agent))
-                print("               {} {}".format(verb, path))
+
+            # Ignore the chatter from favicon requests
             elif 'favicon.ico' in self.path:
                 return
-            else:
-                print(PC.detect_box + "Odd HTTP request from Host: {}, User"
-                      " Agent: {}".format(address, agent))
-                print("               {} {}".format(verb, path))
-                print("               ... sending to phishing page.")
 
+            # Anything else we log as suspicious
+            else:
+                tag = PC.detect_box
+                print(tag + "Odd HTTP request from Host: {}"
+                      .format(address))
+                data = ["User Agent: {}\n".format(agent),
+                        "{} {}\n".format(verb, path),
+                        "...sending to phishing page"]
+                log_msg = self.split_log(data)
+                print(log_msg)
+                self.write_log(log_msg)
+
+            # Basic Auth could have been in combination with any of the above,
+            # so we log it separately
             if 'Authorization' in self.headers:
                 encoded = self.headers['Authorization'].split(" ")[1]
                 plaintext = base64.b64decode(encoded).decode()
