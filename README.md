@@ -5,11 +5,11 @@ Templates are also provided to capture clear-text credentials via basic authenti
 
 This requires no existing credentials to execute and works even on networks that have protected against Responder attacks by disabling NETBIOS and LLMNR. Any Operating System or application leveraging SSDP/UPNP can be targeted, but most of the current weaponization has been aimed at Windows 10.
 
-[Video: Phishing Overview](https://filedn.com/lawDInIqGS3h9zy6QM1YNQQ/essdp-phishing.mp4)
+[Video: Phishing Overview](https://initstring.keybase.pub/host/videos/essdp-phishing.mp4)
 
 As a bonus, this tool can also detect and exploit potential zero-day vulnerabilities in the XML parsing engines of applications using SSDP/UPNP. If a vulnerable device is found, it will alert you in the UI and then mount your SMB share or exfiltrate data with NO USER INTERACTION REQUIRED via an XML External Entity (XXE) attack. 
 
-[Video: 0-Day Overview](https://filedn.com/lawDInIqGS3h9zy6QM1YNQQ/essdp-0days.mp4)
+[Video: 0-Day Overview](https://initstring.keybase.pub/host/videos/essdp-0days.mp4)
 
 # Usage
 The most basic run looks like this:
