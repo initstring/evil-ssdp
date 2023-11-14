@@ -537,9 +537,14 @@ def get_ip(args):
     provided interface. This is used for serving the XML files and also for
     the SMB pointer, if not specified.
     """
-    ip_regex = r'inet (?:addr:)?(.*?) '
-    sys_ifconfig = os.popen('ifconfig ' + args.interface).read()
-    local_ip = re.findall(ip_regex, sys_ifconfig)
+    if (os.popen('which ifconfig')):
+        ip_regex = r'inet (?:addr:)?(.*?) '
+        sys_ifconfig = os.popen('ifconfig ' + args.interface).read()
+        local_ip = re.findall(ip_regex, sys_ifconfig)
+    else:
+        ip_regex = r'inet (.*?)\/'
+        sys_ifconfig = os.popen('ip address show dev ' + args.interface).read()
+        local_ip = re.findall(ip_regex, sys_ifconfig)
     try:
         return local_ip[0]
     except IndexError:
