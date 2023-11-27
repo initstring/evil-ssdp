@@ -13,26 +13,22 @@ There are multiple use cases, but the primary ideas are:
       Several CVEs have come of this, including Plex and Vuze.
 """
 
-try:
-    from multiprocessing import Process
-    from string import Template
-    from http.server import BaseHTTPRequestHandler, HTTPServer
-    from socketserver import ThreadingMixIn
-    from email.utils import formatdate
-    from ipaddress import ip_address
-    import sys
-    import os
-    import re
-    import argparse
-    import socket
-    import struct
-    import signal
-    import base64
-    import random
-except ImportError:
-    print("\nError importing required modules... Are you using Python3?\n"
-          "...you should be.\n")
-    sys.exit(1)
+from multiprocessing import Process
+from string import Template
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from socketserver import ThreadingMixIn
+from email.utils import formatdate
+from ipaddress import ip_address
+import sys
+import os
+import re
+import argparse
+import socket
+import struct
+import signal
+import base64
+import random
+import netifaces
 
 
 BANNER = r'''
@@ -531,18 +527,18 @@ def process_args():
     return args
 
 
-def get_ip(args):
+def get_ip(interface):
     """
     This function will attempt to automatically get the IP address of the
     provided interface. This is used for serving the XML files and also for
     the SMB pointer, if not specified.
     """
-    ip_regex = r'inet (?:addr:)?(.*?) '
-    sys_ifconfig = os.popen('ifconfig ' + args.interface).read()
-    local_ip = re.findall(ip_regex, sys_ifconfig)
     try:
-        return local_ip[0]
-    except IndexError:
+        interface_details = netifaces.ifaddresses(interface)
+        ipv4_info = interface_details[netifaces.AF_INET]
+        local_ip = ipv4_info[0]['addr']
+        return local_ip
+    except ValueError:
         print(PC.warn_box + "Could not get network interface info. "
               "Please check and try again.")
         sys.exit()
@@ -623,7 +619,7 @@ def main():
     Uses Process to multi-thread the SSDP server and the web server.
     """
     args = process_args()
-    local_ip = get_ip(args)
+    local_ip = get_ip(args.interface)
     smb_server = set_smb(args, local_ip)
 
     listener = SSDPListener(local_ip, args.local_port, args.analyze)
